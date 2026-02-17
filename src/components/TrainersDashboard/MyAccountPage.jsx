@@ -465,17 +465,6 @@ const MyAccountPage = ({ setActiveMenu }) => {
         </button>
 
         <button
-          onClick={() => setActiveTab("management")}
-          className={`flex items-center gap-2 pb-2 border-b-2 ${
-            activeTab === "management"
-              ? "text-orange-500 border-orange-500 font-semibold"
-              : "text-gray-600 border-transparent"
-          }`}
-        >
-          <Users size={18} /> Management
-        </button>
-
-        <button
           onClick={() => setActiveTab("customers")}
           className={`flex items-center gap-2 pb-2 border-b-2 ${
             activeTab === "customers"
@@ -591,112 +580,6 @@ focus:outline-none focus:border-orange-300"
         </div>
       )}
       {/* MANAGEMENT TAB */}
-
-      {activeTab === "management" && (
-        <div className="bg-white border rounded-lg p-6 shadow-sm">
-          {/* HEADER */}
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h2 className="text-orange-500 text-lg font-semibold">
-                Team Management
-              </h2>
-              <p className="text-sm text-gray-500">
-                Manage your instructors and staff members
-              </p>
-            </div>
-
-            <button
-              onClick={() => setActiveMenu("Management Details")}
-              className="bg-orange-500 text-white px-4 py-2 rounded-md font-medium"
-            >
-              + Add Employee
-            </button>
-          </div>
-
-          {/* CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl">
-            {trainers.map((trainer) => (
-              <div
-                key={trainer.id}
-                className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm"
-              >
-                {/* TOP ROW */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold text-black">
-                      {trainer.firstName} {trainer.lastName}
-                    </h3>
-
-                    <p className="text-orange-600 text-sm mt-1 font-medium">
-                      {trainer.designation}
-                    </p>
-                  </div>
-
-                  {/* ACTION BUTTONS */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditTrainer(trainer)}
-                      className="w-8 h-8 rounded-full bg-orange-100 hover:bg-orange-200 flex items-center justify-center"
-                    >
-                      <img
-                        src="/edit-icon.png"
-                        alt="Edit"
-                        className="w-4 h-4 object-contain"
-                      />
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setTrainerToDelete(trainer);
-                        setShowTrainerDeleteModal(true);
-                      }}
-                      className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center"
-                    >
-                      <img
-                        src="/delete-icon.png"
-                        alt="Delete"
-                        className="w-4 h-4 object-contain"
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                {/* CONTACT */}
-                <div className="mt-3 text-sm text-black space-y-1">
-                  <p>✉️ {trainer.email || "—"}</p>
-                  <p>📞 {trainer.phone}</p>
-                </div>
-
-                {/* DESCRIPTION */}
-                <p className="text-gray-500 text-sm mt-3 leading-relaxed">
-                  {trainer.experience}
-                </p>
-
-                {/* ACHIEVEMENTS */}
-                {trainer.achievements?.length > 0 && (
-                  <div className="mt-3">
-                    <p className="font-semibold text-sm flex items-center gap-2">
-                      🏅 Achievements ({trainer.achievements.length})
-                    </p>
-
-                    <ul className="ml-5 mt-1 list-disc text-sm text-gray-700">
-                      {trainer.achievements.map((item, index) => (
-                        <li key={index}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* FOOTER */}
-                <div className="mt-5 pt-4 border-t text-xs text-gray-500">
-                  Joined Date :{" "}
-                  {trainer.createdAt?.toDate?.().toLocaleDateString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* EDIT TRAINER MODAL */}
       {showEditModal && (
@@ -972,7 +855,7 @@ focus:outline-none focus:border-orange-300"
             </div>
 
             <button
-              onClick={() => setActiveMenu("Add Customer Details")}
+              onClick={() => setActiveMenu("Add Students Details")}
               className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md font-medium"
             >
               + Add Customer
