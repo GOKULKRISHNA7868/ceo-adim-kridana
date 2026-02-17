@@ -27,6 +27,7 @@ import Reelsdata from "./Reelsdata";
 import MyAccountPage from "./MyAccountPage";
 const sidebarItems = [
   "Home",
+  "Time Tables",
   "Customers Attendance",
   "Customer Details",
   "Performance Reports",
@@ -42,8 +43,6 @@ const sidebarItems = [
   "Privacy Policy",
 ];
 
-
-
 const InstituteDashboard = () => {
   const [activeMenu, setActiveMenu] = useState("Home");
   const { institute, user } = useAuth();
@@ -53,7 +52,6 @@ const InstituteDashboard = () => {
   const [students, setStudents] = useState([]);
   const [trainers, setTrainers] = useState([]);
   const [dataType, setDataType] = useState("students");
-
 
   /* =============================
      📂 FETCH STUDENTS & TRAINERS
@@ -76,25 +74,25 @@ const InstituteDashboard = () => {
       where("instituteId", "==", user.uid),
     );
 
-const unsubStudents = onSnapshot(studentsQuery, (snap) => {
-  const data = snap.docs.map((doc) => {
-    const raw = doc.data();
+    const unsubStudents = onSnapshot(studentsQuery, (snap) => {
+      const data = snap.docs.map((doc) => {
+        const raw = doc.data();
 
-    return {
-      uid: doc.id,
-      ...raw,
+        return {
+          uid: doc.id,
+          ...raw,
 
-      // ✅ keep category fallback logic
-      batch: raw.batch || raw.category || "",
+          // ✅ keep category fallback logic
+          batch: raw.batch || raw.category || "",
 
-      createdAt: raw.createdAt
-        ? raw.createdAt.toDate().toISOString().split("T")[0]
-        : null,
-    };
-  });
+          createdAt: raw.createdAt
+            ? raw.createdAt.toDate().toISOString().split("T")[0]
+            : null,
+        };
+      });
 
-  setStudents(data);
-});
+      setStudents(data);
+    });
 
     const trainersQuery = query(
       collection(db, "InstituteTrainers"),
@@ -127,30 +125,30 @@ const unsubStudents = onSnapshot(studentsQuery, (snap) => {
   ============================= */
   const renderMainContent = () => {
     switch (activeMenu) {
-case "Home":
-  return (
-    <InstituteDataPage
-      students={students}
-      trainers={trainers}
-      studentLabel="Customers"
-      trainerLabel="Management"
-      setDataType={setDataType}
-      setActiveMenu={setActiveMenu}
-      onDeleteStudent={(uid) =>
-        setStudents((prev) => prev.filter((s) => s.uid !== uid))
-      }
-      onDeleteTrainer={(trainerUid) =>
-        setTrainers((prev) =>
-          prev.filter((t) => t.trainerUid !== trainerUid)
-        )
-      }
-    />
-  );
-     
+      case "Home":
+        return (
+          <InstituteDataPage
+            students={students}
+            trainers={trainers}
+            studentLabel="Customers"
+            trainerLabel="Management"
+            setDataType={setDataType}
+            setActiveMenu={setActiveMenu}
+            onDeleteStudent={(uid) =>
+              setStudents((prev) => prev.filter((s) => s.uid !== uid))
+            }
+            onDeleteTrainer={(trainerUid) =>
+              setTrainers((prev) =>
+                prev.filter((t) => t.trainerUid !== trainerUid),
+              )
+            }
+          />
+        );
+
       case "Customers Attendance":
-  return <StudentsAttendancePage />;
+        return <StudentsAttendancePage />;
       case "Management Attendance":
-  return <TrainersAttendancePage />;
+        return <TrainersAttendancePage />;
       case "Fees Details":
         return <FeesDetailsPage />;
       case "Salary Details":
@@ -158,13 +156,13 @@ case "Home":
       case "Management Details":
         return <AddTrainerDetailsPage />;
       case "Customer Details":
-  return <AddStudentDetailsPage />;
+        return <AddStudentDetailsPage />;
       case "Sell Sports Material":
         return <SellSportsMaterial setActiveMenu={setActiveMenu} />;
       case "Upload Product Details":
         return <UploadProductDetails />;
       case "Orders":
-        return <Orders />;   
+        return <Orders />;
       case "Terms & Conditions":
         return <TermsAndConditions />;
       case "Privacy Policy":
@@ -172,7 +170,9 @@ case "Home":
       case "Performance Reports":
         return <PerformanceReports />;
       case "Analytics":
-  return <Reelsdata />;
+        return <Reelsdata />;
+      case "Time Tables":
+        return <Timetable />;
       case "My Account":
         return <MyAccountPage setActiveMenu={setActiveMenu} />;
 

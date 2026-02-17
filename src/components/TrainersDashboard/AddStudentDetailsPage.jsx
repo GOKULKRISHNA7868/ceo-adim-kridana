@@ -371,7 +371,6 @@ export default function AddTrainerDetailsPage() {
       );
       const studentUid = cred.user.uid;
 
-
       console.log("FORM DATA BEFORE SAVE", formData);
 
       const { aadharFiles, ...rest } = formData;
@@ -398,15 +397,14 @@ export default function AddTrainerDetailsPage() {
        🔹 FIREBASE SAVE (URLS ONLY)
     ============================== */
 
-      await setDoc(doc(db, "students", studentUid), {
-
+      await setDoc(doc(db, "trainerstudents", studentUid), {
         ...rest,
         aadharFilesCount: aadharFiles.length,
 
         profileImageUrl: profileImageUrl,
         aadharUrls: aadharUrls,
 
-        studentUid: studentUid,   // ✅ FIXED
+        studentUid: studentUid, // ✅ FIXED
         trainerId: user.uid,
         role: "student",
 
@@ -414,10 +412,8 @@ export default function AddTrainerDetailsPage() {
       });
 
       await updateDoc(doc(db, "trainers", user.uid), {
-        students: arrayUnion(studentUid),  // ✅ FIXED
+        students: arrayUnion(studentUid), // ✅ FIXED
       });
-
-
 
       alert("Student created successfully");
 
@@ -487,8 +483,9 @@ export default function AddTrainerDetailsPage() {
               {[1, 2].map((s) => (
                 <div
                   key={s}
-                  className={`h-3 flex-1 rounded-full ${step >= s ? "bg-orange-500" : "bg-gray-300"
-                    }`}
+                  className={`h-3 flex-1 rounded-full ${
+                    step >= s ? "bg-orange-500" : "bg-gray-300"
+                  }`}
                 />
               ))}
             </div>
@@ -674,14 +671,15 @@ export default function AddTrainerDetailsPage() {
                   <span>
                     {formData.timings
                       ? timeSlots.find((t) => t.value === formData.timings)
-                        ?.label
+                          ?.label
                       : "Select Time"}
                   </span>
 
                   <ChevronDown
                     size={16}
-                    className={`transition-transform ${showTimeDropdown ? "rotate-180" : ""
-                      }`}
+                    className={`transition-transform ${
+                      showTimeDropdown ? "rotate-180" : ""
+                    }`}
                   />
                 </button>
 

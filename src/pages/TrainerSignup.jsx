@@ -127,7 +127,7 @@ export default function TrainerSignup() {
 
   const [profilePreview, setProfilePreview] = useState(null);
   const [certifications, setCertifications] = useState([]);
-
+  const [profileFile, setProfileFile] = useState(null);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -179,7 +179,39 @@ export default function TrainerSignup() {
 
   const handleProfileUpload = (e) => {
     const file = e.target.files[0];
-    if (file) setProfilePreview(URL.createObjectURL(file));
+    if (file) {
+      setProfileFile(file); // store file
+      setProfilePreview(URL.createObjectURL(file)); // preview
+    }
+  };
+  const uploadProfileToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // ✅ Your Unsigned Preset
+    formData.append("upload_preset", "kridana_upload");
+
+    try {
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/daiyvial8/image/upload",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.secure_url) {
+        throw new Error("Cloudinary upload failed");
+      }
+
+      return data.secure_url;
+    } catch (err) {
+      console.error("Cloudinary Upload Error:", err);
+      alert("Image upload failed!");
+      return "";
+    }
   };
 
   const handleCertificateUpload = (e) => {
@@ -199,47 +231,44 @@ export default function TrainerSignup() {
     e.target.value = null; // allow re-select same file
   };
 
+  const handleAadharUpload = (e) => {
+    const newFiles = Array.from(e.target.files);
 
- const handleAadharUpload = (e) => {
-  const newFiles = Array.from(e.target.files);
+    setFormData((prev) => {
+      const combined = [...prev.aadharFiles, ...newFiles];
 
-  setFormData((prev) => {
-    const combined = [...prev.aadharFiles, ...newFiles];
+      if (combined.length > 2) {
+        alert("Maximum 2 Aadhaar images allowed");
+        return prev;
+      }
 
-    if (combined.length > 2) {
-      alert("Maximum 2 Aadhaar images allowed");
-      return prev;
-    }
+      return {
+        ...prev,
+        aadharFiles: combined,
+      };
+    });
 
-    return {
-      ...prev,
-      aadharFiles: combined,
-    };
-  });
-
-  e.target.value = null;
-};
-
+    e.target.value = null;
+  };
 
   const validateStep = () => {
     if (step === 1) {
-  if (
-    !formData.firstName ||
-    !formData.lastName ||
-    !formData.organization ||
-    !formData.designation ||
-    !formData.dob ||
-    !formData.category ||
-    !formData.subCategory ||
-    !formData.experience ||
-    certifications.length === 0
-  ) {
-    alert("Please fill all fields and upload certification");
-    return false;
-  }
-  return true;
-}
-
+      if (
+        !formData.firstName ||
+        !formData.lastName ||
+        !formData.organization ||
+        !formData.designation ||
+        !formData.dob ||
+        !formData.category ||
+        !formData.subCategory ||
+        !formData.experience ||
+        certifications.length === 0
+      ) {
+        alert("Please fill all fields and upload certification");
+        return false;
+      }
+      return true;
+    }
 
     if (step === 2)
       return (
@@ -249,25 +278,26 @@ export default function TrainerSignup() {
         formData.confirmPassword
       );
 
-if (step === 3) {
-  const isValid =
-    formData.bankName &&
-    formData.accountName &&
-    formData.accountNumber &&
-    formData.ifscCode &&
-    formData.pfDetails &&
-    formData.aadharFiles.length > 0; // at least 1 image
+    if (step === 3) {
+      const isValid =
+        formData.bankName &&
+        formData.accountName &&
+        formData.accountNumber &&
+        formData.ifscCode &&
+        formData.pfDetails &&
+        formData.aadharFiles.length > 0; // at least 1 image
 
-  if (!isValid) {
-    alert("All fields except UPI are mandatory. Please complete them and upload Aadhaar image(s).");
-    return false;
-  }
+      if (!isValid) {
+        alert(
+          "All fields except UPI are mandatory. Please complete them and upload Aadhaar image(s).",
+        );
+        return false;
+      }
 
-  return true;
-}
+      return true;
+    }
+  };
 
-  }
-  
   const handleNext = () => {
     if (!validateStep()) {
       alert("Please fill all required fields");
@@ -280,61 +310,79 @@ if (step === 3) {
     if (step === 1) navigate("/");
     else setStep(step - 1);
   };
+  const handleSubmit = async () => {
+    if (!validateStep()) return;
 
-const handleSubmit = async () => {
-  // validate step 3 fields
-  if (!validateStep()) return;
+    if (!profilePreview || !profileFile) {
+      alert("Please add the profile image");
+      return;
+    }
 
-  // profile image mandatory
-  if (!profilePreview) {
-    alert("Please add the profile image");
-    return;
-  }
+    try {
+      // 1️⃣ Create user
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password,
+      );
 
-  try {
-    const userCred = await createUserWithEmailAndPassword(
-      auth,
-      formData.email,
-      formData.password
-    );
+      // 2️⃣ Upload profile image to Cloudinary
+      const profileImageUrl = await uploadProfileToCloudinary(profileFile);
 
-    const { aadharFiles, ...safeFormData } = formData;
+      if (!profileImageUrl) {
+        alert("Profile image upload failed");
+        return;
+      }
 
-    await setDoc(doc(db, "trainers", userCred.user.uid), {
-      role: "trainer",
-      status: "pending",
-      ...safeFormData,
-      createdAt: serverTimestamp(),
-    });
+      // 3️⃣ Upload certifications to Cloudinary
+      const certificationUrls = [];
 
-    navigate("/trainers/dashboard");
-  } catch (err) {
-    console.error(err);
-    alert("Something went wrong. Try again.");
-  }
-};
+      for (let file of certifications) {
+        const url = await uploadProfileToCloudinary(file);
+        if (url) certificationUrls.push(url);
+      }
 
+      // 4️⃣ Upload Aadhaar images to Cloudinary
+      const aadharUrls = [];
 
+      for (let file of formData.aadharFiles) {
+        const url = await uploadProfileToCloudinary(file);
+        if (url) aadharUrls.push(url);
+      }
 
+      const { aadharFiles, ...safeFormData } = formData;
+
+      // 5️⃣ Save to Firestore
+      await setDoc(doc(db, "trainers", userCred.user.uid), {
+        role: "trainer",
+        status: "pending",
+
+        profileImageUrl, // ✅ profile image
+        certifications: certificationUrls, // ✅ certifications URLs
+        aadharImages: aadharUrls, // ✅ aadhaar URLs
+
+        ...safeFormData,
+        createdAt: serverTimestamp(),
+      });
+
+      navigate("/trainers/dashboard");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong. Try again.");
+    }
+  };
 
   const inputClass =
-
     "h-11 px-3 border border-orange-400 rounded-md bg-white focus:bg-white outline-none focus:border-2 focus:border-orange-500";
 
   // ⬇️ return ( … UI continues here )
 
-
   return (
     <div className="min-h-screen flex justify-center bg-white py-10">
-
       <div className="w-full max-w-5xl rounded-md p-2 mt-1 mb-10">
-
-
-
         {/* HEADER WITH PROFILE + CONTENT BESIDE */}
         {/* HEADER */}
         <div className="flex items-center justify-between mb-10">
-
           {/* LEFT : Upload Profile */}
           {/* LEFT : Upload Profile */}
           <div className="flex flex-col items-center mt-6">
@@ -354,7 +402,9 @@ const handleSubmit = async () => {
             </div>
 
             {/* TEXT BELOW CIRCLE */}
-            <span className="text-sm text-orange-500 font-medium mt-2">Upload Profile</span>
+            <span className="text-sm text-orange-500 font-medium mt-2">
+              Upload Profile
+            </span>
 
             <input
               type="file"
@@ -364,24 +414,22 @@ const handleSubmit = async () => {
             />
           </div>
 
-
           {/* CENTER : Title + Step + Bars */}
           <div className="flex-1 flex flex-col items-center">
             <h2 className="text-3xl font-bold text-orange-500 ">
               Trainer’s Registration
             </h2>
 
-            <p className="text-md text-center mt-6">
-              Step {step} to 3
-            </p>
+            <p className="text-md text-center mt-6">Step {step} to 3</p>
 
             {/* PROGRESS BARS */}
             <div className="flex gap-4 mt-4 w-[580px]">
               {[1, 2, 3].map((s) => (
                 <div
                   key={s}
-                  className={`h-3 flex-1 rounded-full ${step >= s ? "bg-orange-500" : "bg-gray-300"
-                    }`}
+                  className={`h-3 flex-1 rounded-full ${
+                    step >= s ? "bg-orange-500" : "bg-gray-300"
+                  }`}
                 />
               ))}
             </div>
@@ -391,18 +439,20 @@ const handleSubmit = async () => {
           <div className="mt-8" />
         </div>
 
-
         {/* STEP 1 */}
         {step === 1 && (
           <div className="grid grid-cols-2 gap-x-12 gap-y-6 mb-2">
-
             {[
               ["First Name*", "firstName"],
               ["Last Name*", "lastName"],
             ].map(([label, name]) => (
               <div key={name} className="flex flex-col gap-3 mb-1">
                 <label className="text-sm font-semibold mb-0">{label}</label>
-                <input name={name} onChange={handleChange} className={inputClass} />
+                <input
+                  name={name}
+                  onChange={handleChange}
+                  className={inputClass}
+                />
               </div>
             ))}
 
@@ -420,7 +470,6 @@ const handleSubmit = async () => {
             {[
               ["Designation*", "designation"],
               ["Date Of Birth*", "dob", "date"],
-
             ].map(([label, name, type = "text"]) => (
               <div key={name} className="flex flex-col">
                 <label className="text-sm font-semibold mb-2">{label}</label>
@@ -507,11 +556,9 @@ const handleSubmit = async () => {
                 className={`${inputClass} pr-12`}
               />
 
-
               <button
                 type="button"
                 onClick={() => certificateInputRef.current.click()}
-
                 className="absolute right-3 top-[34px]
              w-6 h-6
              rounded-full
@@ -533,16 +580,13 @@ const handleSubmit = async () => {
               <p className="text-xs text-gray-500 mt-1">
                 Upload certification or licence images (1–3 only)
               </p>
-
             </div>
-
           </div>
         )}
 
         {/* STEP 2 */}
         {step === 2 && (
           <div className="grid grid-cols-2 gap-x-5 gap-y-6 mt-8">
-
             {/* Phone Number */}
             <div className="flex flex-col">
               <label className="text-sm font-semibold mb-2">
@@ -604,23 +648,18 @@ const handleSubmit = async () => {
                 Login
               </span>
             </div>
-
           </div>
         )}
         {step === 3 && (
           <div className="mt-8">
-
             <p className="text-center text-red-500 font-medium mb-6">
               You can add your Bank Details
             </p>
 
             <div className="grid grid-cols-2 gap-x-5 gap-y-6">
-
               {/* Bank Name */}
               <div className="flex flex-col">
-                <label className="text-sm font-semibold mb-2">
-                  Bank Name*
-                </label>
+                <label className="text-sm font-semibold mb-2">Bank Name*</label>
                 <input
                   name="bankName"
                   onChange={handleChange}
@@ -654,9 +693,7 @@ const handleSubmit = async () => {
 
               {/* IFSC Code */}
               <div className="flex flex-col">
-                <label className="text-sm font-semibold mb-2">
-                  IFSC Code*
-                </label>
+                <label className="text-sm font-semibold mb-2">IFSC Code*</label>
                 <input
                   name="ifscCode"
                   onChange={handleChange}
@@ -689,28 +726,28 @@ const handleSubmit = async () => {
               </div>
 
               {/* Aadhar Upload */}
-{/* Aadhaar Upload */}
-<div className="col-span-2 flex flex-col">
-  <label className="text-sm font-semibold mb-2">
-    Aadhaar Front & Back Photos*
-  </label>
+              {/* Aadhaar Upload */}
+              <div className="col-span-2 flex flex-col">
+                <label className="text-sm font-semibold mb-2">
+                  Aadhaar Front & Back Photos*
+                </label>
 
-  <div className="relative w-full">
-    <input
-      readOnly
-      value={
-        formData.aadharFiles.length
-          ? `${formData.aadharFiles.length}/2 image(s) selected`
-          : ""
-      }
-      placeholder="Upload Aadhaar images"
-      className={`${inputClass} w-full pr-14`}
-    />
+                <div className="relative w-full">
+                  <input
+                    readOnly
+                    value={
+                      formData.aadharFiles.length
+                        ? `${formData.aadharFiles.length}/2 image(s) selected`
+                        : ""
+                    }
+                    placeholder="Upload Aadhaar images"
+                    className={`${inputClass} w-full pr-14`}
+                  />
 
-    <button
-      type="button"
-      onClick={() => aadharInputRef.current.click()}
-      className="
+                  <button
+                    type="button"
+                    onClick={() => aadharInputRef.current.click()}
+                    className="
         absolute right-3 top-1/2 -translate-y-1/2
         w-9 h-9
         rounded-full
@@ -719,26 +756,24 @@ const handleSubmit = async () => {
         flex items-center justify-center
         bg-white
       "
-    >
-      +
-    </button>
+                  >
+                    +
+                  </button>
 
-    <input
-      type="file"
-      ref={aadharInputRef}
-      multiple
-      accept="image/*"
-      onChange={handleAadharUpload}
-      className="hidden"
-    />
-  </div>
+                  <input
+                    type="file"
+                    ref={aadharInputRef}
+                    multiple
+                    accept="image/*"
+                    onChange={handleAadharUpload}
+                    className="hidden"
+                  />
+                </div>
 
-  <p className="text-xs text-gray-500 mt-1">
-    You can upload 1 or 2 images (maximum 2)
-  </p>
-</div>
-
-
+                <p className="text-xs text-gray-500 mt-1">
+                  You can upload 1 or 2 images (maximum 2)
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -747,10 +782,7 @@ const handleSubmit = async () => {
 
         {/* BUTTONS */}
         <div className="flex justify-end gap-6 mt-4">
-          <button
-            onClick={handleBack}
-            className="text-orange-500 font-medium"
-          >
+          <button onClick={handleBack} className="text-orange-500 font-medium">
             Back
           </button>
 
@@ -772,9 +804,6 @@ const handleSubmit = async () => {
             </button>
           )}
         </div>
-
-
-
       </div>
     </div>
   );

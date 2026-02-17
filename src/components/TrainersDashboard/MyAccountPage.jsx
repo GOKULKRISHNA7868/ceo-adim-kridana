@@ -34,7 +34,12 @@ const MyAccountPage = ({ setActiveMenu }) => {
   });
 
   const [media, setMedia] = useState([]);
-
+  const [trainers, setTrainers] = useState([]);
+  const [editingTrainer, setEditingTrainer] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showTrainerDeleteModal, setShowTrainerDeleteModal] = useState(false);
+  const [trainerToDelete, setTrainerToDelete] = useState(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   const [activeCount, setActiveCount] = useState(0);
   const [leftCount, setLeftCount] = useState(0);
@@ -59,10 +64,21 @@ const MyAccountPage = ({ setActiveMenu }) => {
     const fetchProfile = async () => {
       if (!user?.uid) return;
 
-      const ref = doc(db, "InstituteTrainers", user.uid);
+      const ref = doc(db, "trainers", user.uid);
+
       const snap = await getDoc(ref);
 
-      if (snap.exists()) setProfile(snap.data());
+      if (snap.exists()) {
+        const data = snap.data();
+
+        setProfile({
+          fullName: `${data.firstName || ""} ${data.lastName || ""}`.trim(),
+          email: data.email || "",
+          phone: data.phoneNumber || "",
+          bio: data.experience || "",
+          profileImage: data.profileImageUrl || "",
+        });
+      }
     };
 
     fetchProfile();
@@ -73,33 +89,60 @@ const MyAccountPage = ({ setActiveMenu }) => {
     const fetchMedia = async () => {
       if (!user?.uid) return;
 
-      const ref = doc(db, "InstituteTrainers", user.uid);
-const snap = await getDoc(ref);
-
-if (snap.exists()) {
-  const data = snap.data();
-  const allMedia = [
-    ...(data.images || []),
-    ...(data.videos || []),
-    ...(data.reels || []),
-  ];
-  setMedia(allMedia);
-}
+      const snap = await getDocs(collection(db, "trainers", user.uid, "media"));
+      setMedia(snap.docs.map((d) => d.data().image));
     };
 
     fetchMedia();
   }, [user]);
+  useEffect(() => {
+    if (activeTab !== "management" || !user?.uid) return;
 
+    const fetchTrainers = async () => {
+      const q = query(
+        collection(db, "trainers"),
+        where("role", "==", "trainer"),
+      );
+
+      const snap = await getDocs(q);
+
+      const list = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }))
+        .filter((t) => t.status !== "Left");
+
+      setTrainers(list);
+    };
+
+    fetchTrainers();
+  }, [activeTab, user]);
 
   /* ================= FETCH STUDENTS ================= */
   useEffect(() => {
     if (activeTab !== "customers" || !user?.uid) return;
+    const fetchLeftTrainers = async () => {
+      const q = query(
+        collection(db, "trainerstudents"),
+        where("trainerId", "==", user.uid),
+        where("status", "==", "Left"),
+      );
 
+      const snap = await getDocs(q);
+
+      const leftList = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+
+      console.log("Left Trainers:", leftList); // check in console
+    };
 
     const fetchStudents = async () => {
       const q = query(
-        collection(db, "students"),
-        where("instituteId", "==", user.uid),
+        collection(db, "trainerstudents"),
+        where("trainerId", "==", user.uid),
       );
 
       const snap = await getDocs(q);
@@ -112,12 +155,11 @@ if (snap.exists()) {
 
       setStudents(list);
       setFilteredStudents(list);
-      setStudents(list);
-      setFilteredStudents(list);
     };
 
     fetchStudents();
   }, [activeTab, user]);
+
   const uploadToCloudinary = async (file, type) => {
     setUploading(true);
     setUploadMsg("");
@@ -196,7 +238,8 @@ if (snap.exists()) {
 
   /* ================= SAVE PROFILE ================= */
   const handleSave = async () => {
-    await setDoc(doc(db, "InstituteTrainers", user.uid), profile, { merge: true });
+    await setDoc(doc(db, "trainers", user.uid), profile, { merge: true });
+
     alert("Profile Saved ✅");
   };
 
@@ -212,7 +255,7 @@ if (snap.exists()) {
       const updatedProfile = { ...profile, profileImage: base64 };
       setProfile(updatedProfile);
 
-      await setDoc(doc(db, "InstituteTrainers", user.uid), updatedProfile, {
+      await setDoc(doc(db, "trainers", user.uid), updatedProfile, {
         merge: true,
       });
     };
@@ -229,11 +272,13 @@ if (snap.exists()) {
     const url = await uploadToCloudinary(pendingFile, cloudType);
     if (!url) return;
 
-    const instituteRef = doc(db, "InstituteTrainers", user.uid);
+    const instituteRef = doc(db, "trainers", user.uid);
+
     const snap = await getDoc(instituteRef);
     if (!snap.exists()) return;
 
-    const data = snap.data();
+    const data = snap.data() || {};
+
     let updateData = {};
 
     if (selectedUploadType === "image") {
@@ -265,12 +310,51 @@ if (snap.exists()) {
     setShowUploadTypeModal(false);
   };
 
+  const confirmDeleteTrainer = async () => {
+    if (!trainerToDelete || !deleteReason.trim()) {
+      alert("Please enter reason");
+      return;
+    }
 
+    try {
+      await updateDoc(doc(db, "trainerstudents", trainerToDelete.id), {
+        status: "Left",
+        leftReason: deleteReason,
+        leftDate: serverTimestamp(),
+      });
 
+      // Remove from UI immediately
+      setTrainers((prev) => prev.filter((t) => t.id !== trainerToDelete.id));
+
+      setDeleteReason("");
+      setTrainerToDelete(null);
+      setShowTrainerDeleteModal(false);
+    } catch (error) {
+      console.error("Error updating trainer:", error);
+    }
+  };
+
+  const handleEditTrainer = (trainer) => {
+    setEditingTrainer(trainer);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateTrainer = async () => {
+    await updateDoc(
+      doc(db, "trainerstudents", editingTrainer.id),
+      editingTrainer,
+    );
+
+    setTrainers((prev) =>
+      prev.map((t) => (t.id === editingTrainer.id ? editingTrainer : t)),
+    );
+
+    setShowEditModal(false);
+  };
   const markStudentLeft = async () => {
     if (!selectedStudent) return;
 
-    await updateDoc(doc(db, "students", selectedStudent.id), {
+    await updateDoc(doc(db, "trainerstudents", selectedStudent.id), {
       status: "Left",
       leftReason: leaveReason,
       leftDate: serverTimestamp(),
@@ -296,7 +380,7 @@ if (snap.exists()) {
   const permanentlyDeleteStudent = async (student) => {
     if (!window.confirm("Permanently delete this customer?")) return;
 
-    await deleteDoc(doc(db, "students", student.id));
+    await deleteDoc(doc(db, "trainerstudents", student.id));
 
     setStudents((prev) => prev.filter((s) => s.id !== student.id));
   };
@@ -304,7 +388,7 @@ if (snap.exists()) {
   const handleDeleteStudent = async (id) => {
     if (!window.confirm("Mark this customer as Left?")) return;
 
-    await updateDoc(doc(db, "students", id), {
+    await updateDoc(doc(db, "trainerstudents", id), {
       status: "Left",
       leftDate: serverTimestamp(),
     });
@@ -319,7 +403,7 @@ if (snap.exists()) {
     const reason = prompt("Enter reason for marking as Left:");
     if (!reason) return;
 
-    await updateDoc(doc(db, "students", student.id), {
+    await updateDoc(doc(db, "trainerstudents", student.id), {
       status: "Left",
       leftReason: reason,
       leftDate: serverTimestamp(),
@@ -340,9 +424,9 @@ if (snap.exists()) {
   };
 
   return (
-    <div className="px-10 py-6 bg-[#FAFAFA] min-h-screen">
+    <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 bg-[#FAFAFA] min-h-screen">
       {/* HEADER */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-black">My Account</h1>
           <p className="text-orange-500 text-sm">
@@ -368,7 +452,7 @@ if (snap.exists()) {
       </div>
 
       {/* TABS */}
-      <div className="flex gap-8 border-b pb-2 mb-6">
+      <div className="flex flex-wrap gap-4 sm:gap-8 border-b pb-2 mb-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab("edit")}
           className={`flex items-center gap-2 pb-2 border-b-2 ${
@@ -378,6 +462,17 @@ if (snap.exists()) {
           }`}
         >
           <User size={18} /> Edit Profile
+        </button>
+
+        <button
+          onClick={() => setActiveTab("management")}
+          className={`flex items-center gap-2 pb-2 border-b-2 ${
+            activeTab === "management"
+              ? "text-orange-500 border-orange-500 font-semibold"
+              : "text-gray-600 border-transparent"
+          }`}
+        >
+          <Users size={18} /> Management
         </button>
 
         <button
@@ -487,20 +582,346 @@ focus:outline-none focus:border-orange-300"
                 <img
                   key={i}
                   src={img}
-                  className="w-56 h-32 object-cover rounded-md"
+                  className="w-full sm:w-56 h-40 sm:h-32 object-cover rounded-md"
                 />
               ))}
+            </div>
+            {/* MANAGEMENT TAB */}
+          </div>
+        </div>
+      )}
+      {/* MANAGEMENT TAB */}
+
+      {activeTab === "management" && (
+        <div className="bg-white border rounded-lg p-6 shadow-sm">
+          {/* HEADER */}
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-orange-500 text-lg font-semibold">
+                Team Management
+              </h2>
+              <p className="text-sm text-gray-500">
+                Manage your instructors and staff members
+              </p>
+            </div>
+
+            <button
+              onClick={() => setActiveMenu("Management Details")}
+              className="bg-orange-500 text-white px-4 py-2 rounded-md font-medium"
+            >
+              + Add Employee
+            </button>
+          </div>
+
+          {/* CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl">
+            {trainers.map((trainer) => (
+              <div
+                key={trainer.id}
+                className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm"
+              >
+                {/* TOP ROW */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-semibold text-black">
+                      {trainer.firstName} {trainer.lastName}
+                    </h3>
+
+                    <p className="text-orange-600 text-sm mt-1 font-medium">
+                      {trainer.designation}
+                    </p>
+                  </div>
+
+                  {/* ACTION BUTTONS */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditTrainer(trainer)}
+                      className="w-8 h-8 rounded-full bg-orange-100 hover:bg-orange-200 flex items-center justify-center"
+                    >
+                      <img
+                        src="/edit-icon.png"
+                        alt="Edit"
+                        className="w-4 h-4 object-contain"
+                      />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setTrainerToDelete(trainer);
+                        setShowTrainerDeleteModal(true);
+                      }}
+                      className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center"
+                    >
+                      <img
+                        src="/delete-icon.png"
+                        alt="Delete"
+                        className="w-4 h-4 object-contain"
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONTACT */}
+                <div className="mt-3 text-sm text-black space-y-1">
+                  <p>✉️ {trainer.email || "—"}</p>
+                  <p>📞 {trainer.phone}</p>
+                </div>
+
+                {/* DESCRIPTION */}
+                <p className="text-gray-500 text-sm mt-3 leading-relaxed">
+                  {trainer.experience}
+                </p>
+
+                {/* ACHIEVEMENTS */}
+                {trainer.achievements?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="font-semibold text-sm flex items-center gap-2">
+                      🏅 Achievements ({trainer.achievements.length})
+                    </p>
+
+                    <ul className="ml-5 mt-1 list-disc text-sm text-gray-700">
+                      {trainer.achievements.map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* FOOTER */}
+                <div className="mt-5 pt-4 border-t text-xs text-gray-500">
+                  Joined Date :{" "}
+                  {trainer.createdAt?.toDate?.().toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* EDIT TRAINER MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[95%] sm:w-[700px] rounded-2xl shadow-xl overflow-hidden">
+            <div className="max-h-[75vh] overflow-y-auto">
+              {/* HEADER */}
+              <div className="flex items-center justify-between px-6 py-4 border-b">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Edit Management Details
+                </h2>
+
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-red-500 text-xl"
+                >
+                  ✖
+                </button>
+              </div>
+
+              {/* FORM */}
+              <div className="p-5 space-y-5">
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Name */}
+                  <div>
+                    <label className="text-sm font-medium">Name*</label>
+                    <input
+                      value={editingTrainer.firstName}
+                      onChange={(e) =>
+                        setEditingTrainer({
+                          ...editingTrainer,
+                          firstName: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+
+                  {/* Role */}
+                  <div>
+                    <label className="text-sm font-medium">Role*</label>
+                    <input
+                      value={editingTrainer.designation}
+                      onChange={(e) =>
+                        setEditingTrainer({
+                          ...editingTrainer,
+                          designation: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="text-sm font-medium">E - Mail*</label>
+                    <input
+                      value={editingTrainer.email || ""}
+                      onChange={(e) =>
+                        setEditingTrainer({
+                          ...editingTrainer,
+                          email: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="text-sm font-medium">Phone Number*</label>
+                    <input
+                      value={editingTrainer.phone}
+                      onChange={(e) =>
+                        setEditingTrainer({
+                          ...editingTrainer,
+                          phone: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+
+                  {/* Bio */}
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium">Bio*</label>
+                    <textarea
+                      value={editingTrainer.experience}
+                      onChange={(e) =>
+                        setEditingTrainer({
+                          ...editingTrainer,
+                          experience: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+
+                  {/* Joined Date */}
+                  <div>
+                    <label className="text-sm font-medium">Joined Date*</label>
+                    <input
+                      type="date"
+                      value={editingTrainer.joinedDate || ""}
+                      onChange={(e) =>
+                        setEditingTrainer({
+                          ...editingTrainer,
+                          joinedDate: e.target.value,
+                        })
+                      }
+                      className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                </div>
+
+                {/* ACHIEVEMENTS */}
+                <div className="border-t pt-6">
+                  <h3 className="text-xl font-semibold mb-4">Achievements</h3>
+
+                  {(editingTrainer.achievements || []).map((a, index) => (
+                    <div key={index} className="flex items-center gap-3 mb-3">
+                      <input
+                        value={a}
+                        onChange={(e) => {
+                          const updated = [...editingTrainer.achievements];
+                          updated[index] = e.target.value;
+                          setEditingTrainer({
+                            ...editingTrainer,
+                            achievements: updated,
+                          });
+                        }}
+                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+
+                      <button
+                        onClick={() => {
+                          const updated = editingTrainer.achievements.filter(
+                            (_, i) => i !== index,
+                          );
+                          setEditingTrainer({
+                            ...editingTrainer,
+                            achievements: updated,
+                          });
+                        }}
+                        className="text-red-500"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={() =>
+                      setEditingTrainer({
+                        ...editingTrainer,
+                        achievements: [
+                          ...(editingTrainer.achievements || []),
+                          "",
+                        ],
+                      })
+                    }
+                    className="w-full bg-orange-500 text-white py-3 rounded-md mt-3"
+                  >
+                    + Add Achievements
+                  </button>
+                </div>
+              </div>
+
+              {/* FOOTER */}
+              <div className="flex justify-end gap-4 px-6 py-4 border-t">
+                <button onClick={() => setShowEditModal(false)}>Cancel</button>
+
+                <button
+                  onClick={handleUpdateTrainer}
+                  className="bg-orange-500 text-white px-6 py-2 rounded-md"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showTrainerDeleteModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[90%] sm:w-[400px] rounded-2xl shadow-xl p-6">
+            <h2 className="text-center font-semibold text-lg mb-4">
+              Please Provide the reason for deleting the details
+            </h2>
+
+            <label className="text-sm text-gray-600">Enter your Reason</label>
+
+            <input
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 mt-2 mb-6"
+            />
+
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => {
+                  setShowTrainerDeleteModal(false);
+                  setDeleteReason("");
+                  setTrainerToDelete(null);
+                }}
+                className="bg-gray-300 px-6 py-2 rounded-md"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmDeleteTrainer}
+                className="bg-red-500 text-white px-6 py-2 rounded-md"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
       )}
 
-
-
       {activeTab === "customers" && (
         <div className="bg-white border rounded-lg p-6 shadow-sm">
           {/* ===== SUMMARY CARDS ===== */}
-          <div className="grid grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div className="border border-orange-200 rounded-lg p-4 bg-[#FFFDF9]">
               <p className="text-sm text-gray-500">Active Customers</p>
               <div className="flex justify-between items-center mt-2">
@@ -539,12 +960,29 @@ focus:outline-none focus:border-orange-300"
           </div>
 
           {/* HEADER */}
+          {/* HEADER */}
+          <div className="flex justify-between items-start mb-5">
+            <div>
+              <h2 className="text-orange-500 text-lg font-semibold">
+                Customer Management
+              </h2>
+              <p className="text-sm text-gray-500">
+                Track and manage your students
+              </p>
+            </div>
 
+            <button
+              onClick={() => setActiveMenu("Add Customer Details")}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md font-medium"
+            >
+              + Add Customer
+            </button>
+          </div>
 
           {/* SEARCH + FILTER ROW */}
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
             {/* SEARCH BOX */}
-            <div className="relative w-[320px]">
+            <div className="relative w-full md:w-[320px]">
               <input
                 type="text"
                 placeholder="Search Customers..."
@@ -578,14 +1016,14 @@ focus:outline-none focus:border-orange-300"
           </div>
 
           {/* TABLE */}
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border">
             {/* TABLE HEADER */}
             <div
               className={`grid ${
                 statusFilter === "Left"
-                  ? "grid-cols-[1.5fr_0.8fr_1fr_1fr_1.5fr_1.2fr_1.2fr_0.8fr]"
-                  : "grid-cols-[1.5fr_0.8fr_1fr_1fr_1.2fr_1.2fr_0.8fr]"
-              } bg-[#E9B489] text-black font-medium px-6 py-3`}
+                  ? "grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_100px]"
+                  : "grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_100px]"
+              } bg-[#E9B489] text-black font-medium px-6 py-3 items-center`}
             >
               <p>Name</p>
               <p>Age</p>
@@ -594,7 +1032,7 @@ focus:outline-none focus:border-orange-300"
               {statusFilter === "Left" && <p>Reason</p>}
               <p>Added Date</p>
               <p>Left Date</p>
-              <p>Action</p>
+              <p className="text-center">Action</p>
             </div>
 
             {/* TABLE BODY */}
@@ -603,12 +1041,17 @@ focus:outline-none focus:border-orange-300"
                 key={student.id}
                 className={`grid ${
                   statusFilter === "Left"
-                    ? "grid-cols-[1.5fr_0.8fr_1fr_1fr_1.5fr_1.2fr_1.2fr_0.8fr]"
-                    : "grid-cols-[1.5fr_0.8fr_1fr_1fr_1.2fr_1.2fr_0.8fr]"
+                    ? "grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_100px]"
+                    : "grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_100px]"
                 } px-6 py-4 items-center border-t`}
               >
                 <p>{student.firstName}</p>
-                <p>{student.age}</p>
+                <p className="whitespace-pre-line">
+                  {student.age
+                    ?.replace(" years", "") // 👈 removes years
+                    .replace(" Adults", "\nAdults")
+                    .replace(" Teenage", "\nTeenage")}
+                </p>
                 <p>{student.belt}</p>
 
                 {/* STATUS BADGE */}
@@ -640,11 +1083,11 @@ focus:outline-none focus:border-orange-300"
                 </p>
 
                 {/* ACTION BUTTON */}
-                <div className="flex justify-center items-center">
+                <div className="flex items-center justify-center h-full">
                   {statusFilter === "Left" ? (
                     <button
                       onClick={() => permanentlyDeleteStudent(student)}
-                      className="w-8 h-8 flex items-center justify-center"
+                      className="w-8 h-8 flex items-center justify-center mx-auto"
                       title="Delete Permanently"
                     >
                       <img
@@ -675,7 +1118,7 @@ focus:outline-none focus:border-orange-300"
       {/* ================= UPLOAD TYPE MODAL ================= */}
       {showUploadTypeModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[360px] rounded-xl p-6 shadow-xl">
+          <div className="bg-white w-[90%] sm:w-[360px] rounded-xl p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-center mb-4">
               Select Media Type
             </h3>

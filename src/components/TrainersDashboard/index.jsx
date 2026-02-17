@@ -15,9 +15,9 @@ import DemoClasses from "./DemoClasses";
 import InstituteBookedDemos from "./InstituteBookedDemos";
 import TermsAndConditions from "../../pages/Terms";
 import PrivacyPolicy from "../../pages/Privacy";
-import PerformanceReports from "../InstituteDashboard/PerformanceReports";
-import Reelsdata from "../InstituteDashboard/Reelsdata";
-import MyAccountPage from "../InstituteDashboard/MyAccountPage";
+import PerformanceReports from "./PerformanceReports";
+
+import MyAccountPage from "./MyAccountPage";
 import { db } from "../../firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "../../context/AuthContext";
@@ -32,7 +32,6 @@ const TrainersDashboard = () => {
   const [trainers, setTrainers] = useState([]);
   const [trainerType, setTrainerType] = useState("Trainer"); // NEW
   const { institute } = useAuth();
-
 
   const studentLabel = trainerType === "Therapist" ? "Patients" : "Students";
   const trainerLabel = trainerType === "Therapist" ? "Therapist" : "Trainer";
@@ -49,8 +48,8 @@ const TrainersDashboard = () => {
     "Inbox",
     "Shop",
     "My Account",
-"Performance Reports",
-"Analytics",
+    "Performance Reports",
+    "Analytics",
     "Reports",
     "Payment Details",
     "Terms & Conditions",
@@ -61,7 +60,6 @@ const TrainersDashboard = () => {
   const itemsPerPage = 10;
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-
 
   /* =============================
      🔥 FETCH TRAINER TYPE
@@ -124,46 +122,41 @@ const TrainersDashboard = () => {
   }, []);
 
   useEffect(() => {
-  setCurrentPage(1);
-}, [search, selectedDate]);
-
+    setCurrentPage(1);
+  }, [search, selectedDate]);
 
   const isSameDay = (firestoreDate, selectedDate) => {
-  if (!selectedDate) return true;
-  if (!firestoreDate) return false;
+    if (!selectedDate) return true;
+    if (!firestoreDate) return false;
 
-  let d1;
+    let d1;
 
-  if (firestoreDate.seconds) {
-    d1 = new Date(firestoreDate.seconds * 1000);
-  } else if (firestoreDate instanceof Date) {
-    d1 = firestoreDate;
-  } else {
-    return false;
-  }
+    if (firestoreDate.seconds) {
+      d1 = new Date(firestoreDate.seconds * 1000);
+    } else if (firestoreDate instanceof Date) {
+      d1 = firestoreDate;
+    } else {
+      return false;
+    }
 
-  const d2 = new Date(selectedDate);
+    const d2 = new Date(selectedDate);
 
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-};
+    return (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+  };
 
+  const filteredTrainers = useMemo(() => {
+    return trainers.filter((t) => {
+      const matchesSearch = t.name.toLowerCase().includes(search.toLowerCase());
 
-const filteredTrainers = useMemo(() => {
-  return trainers.filter((t) => {
-    const matchesSearch = t.name
-      .toLowerCase()
-      .includes(search.toLowerCase());
+      const matchesDate = isSameDay(t.createdAt, selectedDate);
 
-    const matchesDate = isSameDay(t.createdAt, selectedDate);
-
-    return matchesSearch && matchesDate;
-  });
-}, [trainers, search, selectedDate]);
-
+      return matchesSearch && matchesDate;
+    });
+  }, [trainers, search, selectedDate]);
 
   const totalPages = Math.ceil(filteredTrainers.length / itemsPerPage);
 
@@ -171,7 +164,6 @@ const filteredTrainers = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredTrainers.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredTrainers, currentPage]);
-
 
   const handleMenuClick = (item) => {
     setActiveMenu(item);
@@ -184,8 +176,8 @@ const filteredTrainers = useMemo(() => {
     if (item === "Payment Details") return setView("paymentDetails");
     if (item === "Editprofile") return setView("Editprofile");
     if (item === "Performance Reports") return setView("performance");
-if (item === "Analytics") return setView("analytics");
-if (item === "My Account") return setView("myAccount");
+    if (item === "Analytics") return setView("analytics");
+    if (item === "My Account") return setView("myAccount");
     if (item === "Demo Classes") return setView("demoClasses");
     if (item === "Booked Demos") return setView("bookedDemos");
     if (item === "Terms & Conditions") return setView("terms");
@@ -196,13 +188,13 @@ if (item === "My Account") return setView("myAccount");
   };
 
   const handleDeleteStudent = async (id) => {
-  try {
-    await deleteDoc(doc(db, "trainerstudents", id));
-    setTrainers((prev) => prev.filter((t) => t.id !== id));
-  } catch (err) {
-    console.error("Error deleting student:", err);
-  }
-};
+    try {
+      await deleteDoc(doc(db, "trainerstudents", id));
+      setTrainers((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      console.error("Error deleting student:", err);
+    }
+  };
 
   const renderMainContent = () => {
     if (view === "MyStudents") return <MyStudents />;
@@ -216,8 +208,8 @@ if (item === "My Account") return setView("myAccount");
     if (view === "terms") return <TermsAndConditions />;
     if (view === "privacy") return <PrivacyPolicy />;
     if (view === "performance") return <PerformanceReports />;
-if (view === "analytics") return <Reelsdata />;
-if (view === "myAccount") return <MyAccountPage />;
+    if (view === "analytics") return <Reelsdata />;
+    if (view === "myAccount") return <MyAccountPage />;
 
     if (view === "notConnected") {
       return (
@@ -237,58 +229,57 @@ if (view === "myAccount") return <MyAccountPage />;
     return (
       <>
         <div className="flex items-center mb-4 w-full">
-  <div className="flex items-center bg-gray-100 border border-gray-300 rounded-full px-5 py-2 w-full max-w-md">
-    <span className="mr-2 text-lg text-[#7C4A1D]">🔍</span>
-    <input
-      type="text"
-      placeholder={`Search ${trainerLabel.toLowerCase()} by name...`}
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-      className="bg-transparent outline-none text-sm w-full text-[#5D3A09]"
-    />
-  </div>
-<div className="flex items-center gap-2 ml-auto">
-  {/* Calendar */}
-  <input
-    type="date"
-    value={selectedDate}
-    onChange={(e) => setSelectedDate(e.target.value)}
-    className="border bg-orange-500 text-white rounded-full px-4 py-2 text-sm"
-  />
+          <div className="flex items-center bg-gray-100 border border-gray-300 rounded-full px-5 py-2 w-full max-w-md">
+            <span className="mr-2 text-lg text-[#7C4A1D]">🔍</span>
+            <input
+              type="text"
+              placeholder={`Search ${trainerLabel.toLowerCase()} by name...`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-transparent outline-none text-sm w-full text-[#5D3A09]"
+            />
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Calendar */}
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="border bg-orange-500 text-white rounded-full px-4 py-2 text-sm"
+            />
 
-  {/* Add Button */}
-  <button
-    onClick={() => setView("addStudent")}
-    className="flex items-center gap-2 bg-orange-500 text-white px-6 py-2 rounded-full font-semibold"
-  >
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 4v16m8-8H4"
-      />
-    </svg>
-    Add
-  </button>
-</div>
-
-</div>
+            {/* Add Button */}
+            <button
+              onClick={() => setView("addStudent")}
+              className="flex items-center gap-2 bg-orange-500 text-white px-6 py-2 rounded-full font-semibold"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Add
+            </button>
+          </div>
+        </div>
 
         <h1 className="text-3xl font-extrabold text-orange-500 mb-4">
           {trainerLabel}s Data
         </h1>
 
         <TrainersTable
-  rows={paginatedTrainers}
-  onDelete={handleDeleteStudent}
-/>
-         <Pagination
+          rows={paginatedTrainers}
+          onDelete={handleDeleteStudent}
+        />
+        <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={(page) => {
@@ -302,33 +293,31 @@ if (view === "myAccount") return <MyAccountPage />;
 
   return (
     <div className="min-h-screen flex bg-white text-[#5D3A09]">
-        <aside className="w-72 bg-[#FFF7ED] flex flex-col border-r border-orange-200 h-screen overflow-y-auto overflow-x-hidden">
-  <div className="flex items-center gap-3 px-4 py-4 border-b border-orange-800 flex-shrink-0">
-    <div className="w-10 h-10 rounded-full bg-orange-700" />
-   <span className="text-xl font-extrabold">
-  {institute?.instituteName || "Institute"}
-</span>
+      <aside className="w-72 bg-[#FFF7ED] flex flex-col border-r border-orange-200 h-screen overflow-y-auto overflow-x-hidden">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-orange-800 flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-orange-700" />
+          <span className="text-xl font-extrabold">
+            {institute?.instituteName || "Institute"}
+          </span>
+        </div>
 
-  </div>
-
-  <div className="flex-1 bg-[#FFF7EC] text-[#5D3A09] text-lg">
-    {sidebarItems.map((item) => (
-      <button
-        key={item}
-        type="button"
-        onClick={() => handleMenuClick(item)}
-        className={`w-full text-left px-4 py-3 border-b border-orange-200 transition-all break-words ${
-          item === activeMenu
-            ? "bg-[#F97316] text-white font-semibold rounded-md mx-2"
-            : "hover:bg-[#FED7AA]"
-        }`}
-      >
-        {item}
-      </button>
-    ))}
-  </div>
-</aside>
-
+        <div className="flex-1 bg-[#FFF7EC] text-[#5D3A09] text-lg">
+          {sidebarItems.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => handleMenuClick(item)}
+              className={`w-full text-left px-4 py-3 border-b border-orange-200 transition-all break-words ${
+                item === activeMenu
+                  ? "bg-[#F97316] text-white font-semibold rounded-md mx-2"
+                  : "hover:bg-[#FED7AA]"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </aside>
 
       <main className="flex-1 bg-white px-10 py-8 overflow-y-auto h-screen">
         {renderMainContent()}
