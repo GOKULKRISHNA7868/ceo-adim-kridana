@@ -13,6 +13,7 @@ export default function Login() {
 
   const [darkMode, setDarkMode] = useState(false);
   const [formData, setFormData] = useState({ emailPhone: "", password: "" });
+  const [familyStudents, setFamilyStudents] = useState([]);
 
   const handleChange = (e) =>
     setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -31,19 +32,21 @@ export default function Login() {
 
       const trainerSnap = await getDoc(doc(db, "trainers", user.uid));
       const instituteSnap = await getDoc(doc(db, "institutes", user.uid));
+      const familySnap = await getDoc(doc(db, "families", user.uid));
 
       let actualRole = null;
       if (trainerSnap.exists()) actualRole = "trainer";
       if (instituteSnap.exists()) actualRole = "institute";
+      if (familySnap.exists()) actualRole = "family";
       if (!actualRole && role === "user") actualRole = "user";
 
-      if (role !== "user" && actualRole !== role) {
+      if (role !== "user" && actualRole !== role && actualRole !== "family") {
         alert(`Role mismatch. Registered as ${actualRole}`);
         return;
       }
 
       // 🔐 PLAN CHECK (trainer / institute only)
-      if (actualRole !== "user") {
+      if (actualRole !== "user" && actualRole !== "family") {
         const planRef = doc(db, "plans", user.uid);
         const planSnap = await getDoc(planRef);
 
@@ -64,7 +67,13 @@ export default function Login() {
         }
       }
 
-      // ✅ FINAL REDIRECT
+      // ✅ FAMILY LOGIN REDIRECT
+      if (actualRole === "family") {
+        navigate("/"); // landing page or main index
+        return;
+      }
+
+      // ✅ FINAL REDIRECT FOR OTHERS
       if (actualRole === "trainer") navigate("/trainers/dashboard");
       else if (actualRole === "institute") navigate("/institutes/dashboard");
       else navigate("/landing");
@@ -83,6 +92,7 @@ export default function Login() {
       }
     }
   };
+
   // ✅ Forgot Password Handler
   const handleForgotPassword = async () => {
     const email = prompt("Enter your registered email to reset password:");

@@ -8,8 +8,10 @@ import {
   query,
   where,
   addDoc,
+  setDoc, // 🔥 ADD THIS
   serverTimestamp,
 } from "firebase/firestore";
+
 import dayjs from "dayjs";
 
 const categories = [
@@ -127,6 +129,9 @@ export default function StudentPerformanceReport() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
   const [attendancePercent, setAttendancePercent] = useState(null);
+  /* 🔽 AUTO-FILL EXISTING REPORT STATE */
+  const [existingReportId, setExistingReportId] = useState(null);
+
   const [attendanceStats, setAttendanceStats] = useState({
     total: 0,
     present: 0,
@@ -134,6 +139,15 @@ export default function StudentPerformanceReport() {
 
   const [metrics, setMetrics] = useState({
     attendance: "",
+    focus: "",
+    skill: "",
+    coach: "",
+    fitness: "",
+    team: "",
+    discipline: "",
+  });
+
+  const [metricObservations, setMetricObservations] = useState({
     focus: "",
     skill: "",
     coach: "",
@@ -166,7 +180,10 @@ export default function StudentPerformanceReport() {
 
   useEffect(() => {
     console.log("[STUDENT SELECTED]", selectedStudent);
-    if (selectedStudent) fetchAttendance();
+    if (selectedStudent) {
+      fetchAttendance();
+      fetchExistingPerformance(); // 🔥 new
+    }
   }, [selectedStudent, selectedMonth]);
 
   const fetchInstituteStudents = async () => {
@@ -222,8 +239,12 @@ export default function StudentPerformanceReport() {
       const user = auth.currentUser;
       if (!user || !selectedStudent) return;
 
+      console.log("[FETCH ATTENDANCE] START");
+
       const start = dayjs(selectedMonth).startOf("month").format("YYYY-MM-DD");
       const end = dayjs(selectedMonth).endOf("month").format("YYYY-MM-DD");
+
+      console.log("[MONTH RANGE]", start, "→", end);
 
       const colPath = `institutes/${user.uid}/attendance`;
 
@@ -233,8 +254,11 @@ export default function StudentPerformanceReport() {
 
       snap.forEach((d) => {
         const data = d.data();
+
+        // 🔥 MATCHING NEW DATA STRUCTURE
         if (
           data.studentId === selectedStudent &&
+          typeof data.date === "string" &&
           data.date >= start &&
           data.date <= end
         ) {
@@ -242,7 +266,10 @@ export default function StudentPerformanceReport() {
         }
       });
 
+      console.log("[ATTENDANCE RECORDS]", records);
+
       if (records.length === 0) {
+        console.log("[NO ATTENDANCE DATA]");
         setAttendancePercent(null);
         setAttendanceStats({ total: 0, present: 0 });
         setMetrics((prev) => ({ ...prev, attendance: "No Data" }));
@@ -250,17 +277,105 @@ export default function StudentPerformanceReport() {
       }
 
       let total = records.length;
+
       let present = records.filter(
         (r) => String(r.status).toLowerCase() === "present",
       ).length;
 
       const percent = ((present / total) * 100).toFixed(2);
 
+      console.log("[ATTENDANCE CALC]", { total, present, percent });
+
       setAttendanceStats({ total, present });
       setAttendancePercent(percent);
       setMetrics((prev) => ({ ...prev, attendance: `${percent}%` }));
     } catch (err) {
       console.error("[ERROR fetchAttendance]", err);
+    }
+  };
+  const fetchExistingPerformance = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user || !selectedStudent || !selectedMonth) return;
+
+      const monthKey = dayjs(selectedMonth).format("YYYY-MM");
+
+      console.log("[CHECK EXISTING PERFORMANCE]", selectedStudent, monthKey);
+
+      const q = query(
+        collection(db, `institutes/${user.uid}/performancestudents`),
+        where("studentId", "==", selectedStudent),
+        where("month", "==", monthKey),
+      );
+
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        console.log("[NO EXISTING REPORT]");
+        setExistingReportId(null);
+        return;
+      }
+
+      // Only one doc should exist (secure uniqueness)
+      const docSnap = snap.docs[0];
+      const data = docSnap.data();
+
+      console.log("[EXISTING REPORT FOUND]", docSnap.id, data);
+
+      setExistingReportId(docSnap.id);
+
+      // 🔽 AUTO FILL
+      setSelectedCategory(data.category || "");
+      setSelectedSubCategory(data.subCategory || "");
+
+      setAttendancePercent(data.attendance || null);
+      setAttendanceStats(data.attendanceStats || { total: 0, present: 0 });
+
+      setMetrics(
+        data.metrics || {
+          attendance: "",
+          focus: "",
+          skill: "",
+          coach: "",
+          fitness: "",
+          team: "",
+          discipline: "",
+        },
+      );
+      if (data.metricObservations) {
+        setMetricObservations({
+          focus: data.metricObservations.focus || "",
+          skill: data.metricObservations.skill || "",
+          coach: data.metricObservations.coach || "",
+          fitness: data.metricObservations.fitness || "",
+          team: data.metricObservations.team || "",
+          discipline: data.metricObservations.discipline || "",
+        });
+      }
+
+      if (data.physicalFitness) {
+        setPhysicalFitness({
+          speed: data.physicalFitness.speed || { value: "", observation: "" },
+          strength: data.physicalFitness.strength || {
+            value: "",
+            observation: "",
+          },
+          flexibility: data.physicalFitness.flexibility || {
+            value: "",
+            observation: "",
+          },
+          stamina: data.physicalFitness.stamina || {
+            value: "",
+            observation: "",
+          },
+          agility: data.physicalFitness.agility || {
+            value: "",
+            observation: "",
+          },
+        });
+      }
+    } catch (err) {
+      console.error("[ERROR fetchExistingPerformance]", err);
     }
   };
 
@@ -273,7 +388,7 @@ export default function StudentPerformanceReport() {
 
       const savePath = `institutes/${user.uid}/performancestudents`;
 
-      await addDoc(collection(db, savePath), {
+      const payload = {
         studentId: selectedStudent,
         month: monthKey,
         category: selectedCategory,
@@ -281,8 +396,8 @@ export default function StudentPerformanceReport() {
         attendance: attendancePercent,
         attendanceStats,
         metrics,
+        metricObservations,
 
-        /* ✅ PHYSICAL FITNESS SAVED */
         physicalFitness: {
           speed: physicalFitness.speed,
           strength: physicalFitness.strength,
@@ -291,19 +406,38 @@ export default function StudentPerformanceReport() {
           agility: physicalFitness.agility,
         },
 
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-      });
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+      };
 
-      console.log("[SAVE SUCCESS]");
-      alert("Performance Report Saved Successfully");
+      if (existingReportId) {
+        // 🔁 UPDATE MODE
+        console.log("[UPDATE MODE]", existingReportId);
+
+        await setDoc(doc(db, savePath, existingReportId), payload, {
+          merge: true,
+        });
+
+        alert("Performance Report Updated Successfully ✅");
+      } else {
+        // ➕ CREATE MODE
+        console.log("[CREATE MODE]");
+
+        await addDoc(collection(db, savePath), {
+          ...payload,
+          createdAt: serverTimestamp(),
+          createdBy: user.uid,
+        });
+
+        alert("Performance Report Saved Successfully ✅");
+      }
     } catch (err) {
       console.error("[ERROR SAVE]", err);
     }
   };
+
   return (
     <div className="min-h-screen bg-white p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -334,7 +468,6 @@ export default function StudentPerformanceReport() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-6">
         <select
           className="border border-orange-300 rounded-lg p-3 w-full"
-
           value={selectedStudent}
           onChange={(e) => setSelectedStudent(e.target.value)}
         >
@@ -412,8 +545,10 @@ export default function StudentPerformanceReport() {
 
           {["focus", "skill", "coach", "fitness", "team", "discipline"].map(
             (key, i) => (
-              <div key={i} className="border border-orange-200 rounded-xl p-4 flex flex-col">
-
+              <div
+                key={i}
+                className="border border-orange-200 rounded-xl p-4 flex flex-col"
+              >
                 <p className="text-sm font-semibold text-orange-500">
                   {key.toUpperCase()}
                 </p>
@@ -428,6 +563,13 @@ export default function StudentPerformanceReport() {
                 <input
                   className="w-full mt-2 p-2 border border-orange-300 rounded-lg"
                   placeholder="Add Observation"
+                  value={metricObservations[key]}
+                  onChange={(e) =>
+                    setMetricObservations({
+                      ...metricObservations,
+                      [key]: e.target.value,
+                    })
+                  }
                 />
               </div>
             ),
@@ -440,7 +582,6 @@ export default function StudentPerformanceReport() {
         <div
           onClick={() => setShowPhysicalFitness(!showPhysicalFitness)}
           className="bg-slate-800 text-white px-4 py-3 rounded-lg font-semibold flex items-center justify-between"
-
         >
           <span>Physical Fitness</span>
           <span className="text-lg flex items-center">
@@ -457,7 +598,6 @@ export default function StudentPerformanceReport() {
                   className="border border-orange-200 rounded-xl p-4 bg-orange-50"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
                     <div>
                       <p className="font-semibold text-orange-500">{item}</p>
                       <p className="text-xs text-gray-500">
@@ -508,13 +648,11 @@ export default function StudentPerformanceReport() {
       </div>
 
       {/* FOOTER */}
-   <div className="flex flex-col sm:flex-row justify-end gap-4 mt-10">
-
+      <div className="flex flex-col sm:flex-row justify-end gap-4 mt-10">
         <button className="text-orange-500 font-semibold">Back</button>
         <button
           onClick={handleSave}
           className="bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold w-full sm:w-auto"
-
         >
           Save
         </button>

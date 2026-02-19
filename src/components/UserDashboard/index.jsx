@@ -83,10 +83,13 @@ const UserDashboard = () => {
 
   const [students, setStudents] = useState([]);
   const [trainers, setTrainers] = useState([]);
+  const [familyStudents, setFamilyStudents] = useState([]);
+  const [selectedStudentUid, setSelectedStudentUid] = useState("");
 
   /* =============================
      ⏱ AUTO LOGOUT (5 MIN)
   ============================= */
+
   useEffect(() => {
     const resetTimer = () => {
       if (idleTimer.current) clearTimeout(idleTimer.current);
@@ -142,6 +145,14 @@ const UserDashboard = () => {
       );
       if (trainerStudentSnap.exists()) {
         setRole("trainerstudent");
+        setRoleLoading(false);
+        return;
+      }
+      const familySnap = await getDoc(doc(db, "families", user.uid));
+      if (familySnap.exists()) {
+        setRole("trainerstudent"); // treat family as trainerstudent
+        setFamilyStudents(familySnap.data().students || []);
+        setSelectedStudentUid(familySnap.data().students?.[0] || "");
         setRoleLoading(false);
         return;
       }
@@ -212,9 +223,9 @@ const UserDashboard = () => {
       case "My Attendance":
         return <Myattendance />;
       case "TrainerStudentAttendance":
-        return <TrainerStudentAttendance />;
+        return <TrainerStudentAttendance studentUid={selectedStudentUid} />;
       case "TrainerStudentsFee":
-        return <TrainerStudentsFee />;
+        return <TrainerStudentsFee studentUid={selectedStudentUid} />;
       case "CheckinCheckout":
         return <CheckinCheckout />;
       case "MyOders":
@@ -269,13 +280,44 @@ const UserDashboard = () => {
           </span>
         </div>
 
-        <div className="flex-1 bg-[#FFF7EC] text-[#5D3A09] text-lg overflow-y-auto">
+        <div className="flex-1 bg-[#FFF7EC] text-[#5D3A09] text-lg overflow-y-auto px-2">
+          {/* FAMILY STUDENT SELECTION DROPDOWN */}
+          {role === "trainerstudent" && familyStudents.length > 0 && (
+            <div className="mb-4 px-2">
+              <label className="block text-sm text-orange-600 font-semibold mb-1">
+                Select Student:
+              </label>
+              <select
+                value={selectedStudentUid}
+                onChange={(e) => setSelectedStudentUid(e.target.value)}
+                className="w-full border border-orange-300 rounded px-2 py-1 text-sm"
+              >
+                {familyStudents.map((uid) => (
+                  <option key={uid} value={uid}>
+                    {uid} {/* optionally fetch and display student name */}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* SIDEBAR ITEMS */}
+          {/* SIDEBAR ITEMS */}
           {sidebarItems.map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => {
                 if (item === "Log Out") return handleLogout();
+
+                // ✅ LOG SELECTED STUDENT UID
+                console.log(
+                  "🧾 Selected Student UID:",
+                  selectedStudentUid,
+                  "Menu:",
+                  item,
+                );
+
                 setActiveMenu(item);
               }}
               className={`w-full text-left px-4 py-3 border-b border-orange-200 transition-all ${

@@ -29,7 +29,7 @@ const StudentsAttendancePage = () => {
 
     const q = query(
       collection(db, "students"),
-      where("instituteId", "==", user.uid)
+      where("instituteId", "==", user.uid),
     );
 
     return onSnapshot(q, (snap) => {
@@ -44,7 +44,7 @@ const StudentsAttendancePage = () => {
     const q = query(
       collection(db, "attendance"),
       where("instituteId", "==", user.uid),
-      where("date", "==", selectedDate)
+      where("date", "==", selectedDate),
     );
 
     return onSnapshot(q, (snap) => {
@@ -62,7 +62,7 @@ const StudentsAttendancePage = () => {
 
     const q = query(
       collection(db, "attendance"),
-      where("instituteId", "==", user.uid)
+      where("instituteId", "==", user.uid),
     );
 
     return onSnapshot(q, (snap) => {
@@ -87,7 +87,7 @@ const StudentsAttendancePage = () => {
     return students.filter((s) =>
       `${s.firstName} ${s.lastName}`
         .toLowerCase()
-        .includes(search.toLowerCase())
+        .includes(search.toLowerCase()),
     );
   }, [students, search]);
 
@@ -112,7 +112,7 @@ const StudentsAttendancePage = () => {
         status: value ? "present" : "absent",
         createdAt: serverTimestamp(),
       },
-      { merge: true }
+      { merge: true },
     );
   };
 

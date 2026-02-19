@@ -21,14 +21,15 @@ const MONTHS = [
 ];
 
 const FeesDetailsPage = () => {
-  const trainerId = auth.currentUser?.uid;
-const [trainees, setTrainees] = useState([]);
+  const instituteId = auth.currentUser?.uid;
+
+  const [students, setStudents] = useState([]);
   const [fees, setFees] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState("");
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedTrainee, setSelectedTrainee] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const monthRef = useRef(null);
@@ -57,84 +58,84 @@ const [trainees, setTrainees] = useState([]);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ================= FETCH trainees ================= */
+  /* ================= FETCH STUDENTS ================= */
   useEffect(() => {
-    if (!trainerId) return;
+    if (!instituteId) return;
 
-const q = query(
-  collection(db, "trainees"),
-  where("trainerId", "==", trainerId),
-);
+    const q = query(
+      collection(db, "trainerstudents"),
+      where("trainerId", "==", instituteId),
+    );
 
     return onSnapshot(q, (snap) => {
-      setTrainees(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-  }, [trainerId]);
+  }, [instituteId]);
 
   /* ================= FETCH FEES ================= */
+  /* ================= FETCH FEES ================= */
+  useEffect(() => {
+    if (!instituteId) return;
+    const q = query(
+      collection(db, "trainerStudentFees"),
+      where("trainerId", "==", instituteId),
+    );
 
-useEffect(() => {
-  if (!trainerId) return;
-
-  const q = query(
-    collection(db, "trainerFees"),
-    where("trainerId", "==", trainerId)
-  );
-
-  return onSnapshot(q, (snap) => {
-    setFees(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  });
-}, [trainerId]);
+    return onSnapshot(q, (snap) => {
+      setFees(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+  }, [instituteId]);
 
   /* ================= SEARCH FILTER ================= */
-  const filteredTrainees = useMemo(() => {
-    return trainees.filter((s) =>
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) =>
       `${s.firstName} ${s.lastName}`
         .toLowerCase()
         .includes(search.toLowerCase()),
     );
-  }, [trainees, search]);
+  }, [students, search]);
 
   const handleAdd = () => setShowAddModal(true);
 
   const handleEdit = () => {
-    if (!selectedTrainee) {
+    if (!selectedStudent) {
       alert("Select a student first");
       return;
     }
 
     setEditData({
-      firstName: selectedTrainee.firstName || "",
-      lastName: selectedTrainee.lastName || "",
-      sessions: selectedTrainee.sessions || "",
-      fees: selectedTrainee.fees || "",
+      firstName: selectedStudent.firstName || "",
+      lastName: selectedStudent.lastName || "",
+      sessions: selectedStudent.sessions || "",
+      fees: selectedStudent.fees || "",
     });
 
     setShowEditModal(true);
   };
 
   const addStudent = async () => {
-const newRef = doc(collection(db, "trainees"));
+    const newRef = doc(collection(db, "trainerstudents"));
 
-await setDoc(newRef, {
-  ...addData,
-  trainerId,
-  createdAt: serverTimestamp(),
-});
+    await setDoc(newRef, {
+      ...addData,
+      trainerId: instituteId,
+      createdAt: serverTimestamp(),
+    });
 
     setShowAddModal(false);
   };
 
   const updateStudent = async () => {
-   await updateDoc(doc(db, "trainees", selectedTrainee.id), editData);
+    await updateDoc(doc(db, "trainerstudents", selectedStudent.id), editData);
+
     setShowEditModal(false);
   };
 
   /* ================= CALCULATIONS ================= */
 
-  const totalTrainees = trainees.length;
+  const totalStudents = students.length;
 
-  const totalAmount = trainees.reduce((sum, s) => sum + Number(s.fees || 0), 0);
+  const totalAmount = students.reduce((sum, s) => sum + Number(s.fees || 0), 0);
 
   const totalPaid = fees
     .filter((f) => f.status === "paid")
@@ -142,27 +143,26 @@ await setDoc(newRef, {
 
   const totalPending = totalAmount - totalPaid;
 
-const getTraineeFeeData = (trainee) => {
-  const traineeFee = Number(trainee.fees || 0);
+  const getStudentFeeData = (student) => {
+    const studentFee = Number(student.fees || 0);
 
-  const paidFees = fees
-    .filter((f) => f.traineeId === trainee.id && f.status === "paid")
-    .reduce((sum, f) => sum + Number(f.finalAmount || 0), 0);
+    const paidFees = fees
+      .filter((f) => f.studentId === student.id && f.status === "paid")
+      .reduce((sum, f) => sum + Number(f.finalAmount || 0), 0);
 
-  return {
-    total: traineeFee,
-    paid: paidFees,
-    pending: traineeFee - paidFees,
+    return {
+      total: studentFee,
+      paid: paidFees,
+      pending: studentFee - paidFees,
+    };
   };
-};
 
   return (
-    <div className="p-6 bg-[#f3f4f6] min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-[#f3f4f6] min-h-screen max-w-7xl mx-auto">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Trainer Fees Details</h1>
-
-        <div ref={monthRef} className="relative min-w-[170px]">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-3xl font-bold">Fees Details</h1>
+        <div ref={monthRef} className="relative w-full sm:w-48">
           <button
             onClick={() => setShowMonthDropdown(!showMonthDropdown)}
             className="bg-orange-500 text-white rounded-lg px-4 py-3 font-semibold w-full flex items-center justify-between"
@@ -174,8 +174,8 @@ const getTraineeFeeData = (trainee) => {
             </span>
 
             <ChevronDown
-              size={16}
-              className={`transition-transform ${showMonthDropdown ? "rotate-180" : ""}`}
+              size={18}
+              className={`ml-2 flex-shrink-0 transition-transform ${showMonthDropdown ? "rotate-180" : ""}`}
             />
           </button>
 
@@ -199,24 +199,24 @@ const getTraineeFeeData = (trainee) => {
       </div>
 
       {/* STATS CARDS */}
-      <div className="grid grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <StatCard title="Total Fees Amount" value={`₹ ${totalAmount}`} />
         <StatCard title="Total Fees Pending" value={`₹ ${totalPending}`} />
         <StatCard title="Total Fees Paid" value={`₹ ${totalPaid}`} />
-        <StatCard title="Total Trainees" value={totalTrainees} />
+        <StatCard title="Total Students" value={totalStudents} />
       </div>
 
       {/* SEARCH + ADD EDIT */}
-      <div className="flex justify-between mb-4">
+      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-4">
         <input
           type="text"
           placeholder="Search here..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border border-orange-400 rounded px-4 py-2 w-80 focus:outline-none focus:ring-0 focus:border-orange-400"
+          className="border border-orange-400 rounded px-4 py-2 w-full sm:w-80 focus:outline-none focus:ring-0 focus:border-orange-400"
         />
 
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-orange-500 text-white px-4 py-2 rounded"
@@ -234,24 +234,24 @@ const getTraineeFeeData = (trainee) => {
       </div>
 
       {/* TABLE */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="grid grid-cols-5 bg-black text-orange-500 px-6 py-3 font-semibold">
-          <div>Trainees Name</div>
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <div className="grid grid-cols-5 min-w-[700px] bg-black text-orange-500 px-6 py-3 font-semibold">
+          <div>Students Name</div>
           <div>Sessions</div>
           <div>Total Amount</div>
           <div>Paid</div>
           <div>Pending</div>
         </div>
 
-        {filteredTrainees.map((student) => {
-          const data = getTraineeFeeData(student);
+        {filteredStudents.map((student) => {
+          const data = getStudentFeeData(student);
 
           return (
             <div
               key={student.id}
-              onClick={() => setSelectedTrainee(student)}
-              className={`grid grid-cols-5 px-6 py-4 border-t items-center cursor-pointer
-  ${selectedTrainee?.id === student.id ? "bg-orange-50" : ""}`}
+              onClick={() => setSelectedStudent(student)}
+              className={`grid grid-cols-5 min-w-[700px] px-6 py-4 border-t items-center cursor-pointer
+  ${selectedStudent?.id === student.id ? "bg-orange-50" : ""}`}
             >
               <div>
                 {student.firstName} {student.lastName}
@@ -268,7 +268,7 @@ const getTraineeFeeData = (trainee) => {
       </div>
 
       {/* SAVE & CANCEL */}
-      <div className="flex justify-end gap-6 mt-8">
+      <div className="flex flex-col sm:flex-row justify-end gap-6 mt-8">
         <button
           onClick={() => {
             setSelectedMonth("");
@@ -283,14 +283,14 @@ const getTraineeFeeData = (trainee) => {
           onClick={() => {
             alert("Saved Successfully ✅");
           }}
-          className="bg-orange-500 text-white px-8 py-3 rounded-lg text-lg font-semibold"
+          className="bg-orange-500 text-white px-8 py-3 rounded-lg text-lg font-semibold w-full sm:w-auto"
         >
           Save
         </button>
       </div>
       {showAddModal && (
         <ModalForm
-          title="Add Trainee"
+          title="Add Student"
           data={addData}
           setData={setAddData}
           onSave={addStudent}
@@ -299,7 +299,7 @@ const getTraineeFeeData = (trainee) => {
       )}
       {showEditModal && (
         <ModalForm
-          title="Edit Trainee"
+          title="Edit Student"
           data={editData}
           setData={setEditData}
           onSave={updateStudent}
@@ -318,7 +318,7 @@ const StatCard = ({ title, value }) => (
 );
 const ModalForm = ({ title, data, setData, onSave, onClose }) => (
   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-xl w-96 space-y-4">
+    <div className="bg-white p-6 rounded-xl w-[90%] sm:w-96 space-y-4">
       <h2 className="font-semibold">{title}</h2>
 
       {Object.keys(data).map((k) => (

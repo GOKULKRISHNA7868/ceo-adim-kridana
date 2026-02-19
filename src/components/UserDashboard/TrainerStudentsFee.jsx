@@ -2,222 +2,218 @@ import React, { useEffect, useState } from "react";
 import { auth, db } from "../../firebase";
 import {
   collection,
-  getDocs,
-  updateDoc,
+  query,
+  where,
+  onSnapshot,
   doc,
+  setDoc,
   serverTimestamp,
+  getDocs,
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
-const StudentPayment = () => {
-  const [fees, setFees] = useState([]);
-  const [selectedFee, setSelectedFee] = useState(null);
-  const [paymentMode, setPaymentMode] = useState("");
-  const [transactionId, setTransactionId] = useState("");
-  const [loading, setLoading] = useState(true);
+const MONTHS = [
+  { label: "January", value: "01" },
+  { label: "February", value: "02" },
+  { label: "March", value: "03" },
+  { label: "April", value: "04" },
+  { label: "May", value: "05" },
+  { label: "June", value: "06" },
+  { label: "July", value: "07" },
+  { label: "August", value: "08" },
+  { label: "September", value: "09" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" },
+];
 
-  const user = auth.currentUser;
+const StudentFeePayment = ({ studentUid }) => {
+  const [student, setStudent] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [paidMonths, setPaidMonths] = useState([]);
 
-  /* ================= FETCH STUDENT FEES ================= */
+  console.log("💡 Selected student UID:", studentUid);
+
+  /* ================= AUTH ================= */
   useEffect(() => {
-    if (!user) {
-      console.log("⏳ Waiting for auth...");
-      return;
-    }
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) setUser(u);
+    });
+    return () => unsub();
+  }, []);
 
-    const fetchFees = async () => {
-      try {
-        console.log("📘 Fetching trainer fees for student:", user.uid);
+  /* ================= FETCH STUDENT ================= */
+  useEffect(() => {
+    if (!studentUid) return; // use selected student UID
 
-        const feesRef = collection(db, "trainerstudents", user.uid, "fees");
+    const q = query(
+      collection(db, "trainerstudents"),
+      where("studentUid", "==", studentUid),
+    );
 
-        const snap = await getDocs(feesRef);
-
-        if (snap.empty) {
-          console.warn("⚠️ No fee records found");
-          setFees([]);
-        } else {
-          const data = snap.docs.map((d) => ({
-            id: d.id,
-            ...d.data(),
-          }));
-
-          console.log("✅ Fees fetched:", data);
-          setFees(data);
-        }
-      } catch (err) {
-        console.error("❌ Error fetching fees:", err);
-      } finally {
-        setLoading(false);
+    return onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        setStudent({ id: snap.docs[0].id, ...snap.docs[0].data() });
       }
+    });
+  }, [studentUid]);
+
+  /* ================= FETCH PAID MONTHS ================= */
+  useEffect(() => {
+    if (!studentUid) return; // use selected student UID
+
+    const fetchPayments = async () => {
+      const q = query(
+        collection(db, "payments"),
+        where("studentUid", "==", studentUid),
+        where("status", "==", "Success"),
+      );
+
+      const snap = await getDocs(q);
+      const months = snap.docs.map((d) => d.data().month);
+      setPaidMonths(months);
     };
 
-    fetchFees();
-  }, [user]);
+    fetchPayments();
+  }, [studentUid]);
+  /* ================= PAY ================= */
+  const handlePay = async () => {
+    if (!selectedMonth) return alert("Select month");
+    if (!student) return;
 
-  /* ================= SUBMIT PAYMENT ================= */
-  const submitPayment = async () => {
-    if (!paymentMode || !transactionId) {
-      alert("Payment mode & transaction ID required");
-      return;
+    if (paidMonths.includes(selectedMonth)) {
+      return alert("Fees already paid for this month ✅");
     }
 
+    setLoading(true);
+
     try {
-      console.log("💰 Submitting payment for:", selectedFee.id);
+      const orderId = "ORD_" + Date.now(); // unique secure order id
 
-      const feeDocRef = doc(
-        db,
-        "trainerstudents",
-        user.uid,
-        "fees",
-        selectedFee.id
-      );
-
-      await updateDoc(feeDocRef, {
-        paymentMode,
-        transactionId,
-        status: "processing",
-        paymentRequestedAt: serverTimestamp(),
+      /* 🔐 Store pending payment (server verified later) */
+      await setDoc(doc(db, "pendingPayments", orderId), {
+        orderId,
+        studentUid: user.uid,
+        studentId: student.id,
+        trainerId: student.trainerId,
+        month: selectedMonth,
+        amount: Number(student.fees),
+        status: "PENDING",
+        createdAt: serverTimestamp(),
       });
 
-      alert("✅ Payment submitted. Waiting for trainer approval.");
+      const res = await fetch("http://localhost:5000/api/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: Number(student.fees),
+          userId: user.uid,
+          month: selectedMonth,
+          studentId: student.id,
+          orderId,
+        }),
+      });
 
-      setSelectedFee(null);
-      setPaymentMode("");
-      setTransactionId("");
+      if (!res.ok) {
+        throw new Error("Backend error");
+      }
 
-      // Refresh list
-      const snap = await getDocs(
-        collection(db, "trainerstudents", user.uid, "fees")
-      );
-      setFees(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const data = await res.json();
+
+      if (!data?.encRequest || !data?.access_code) {
+        throw new Error("Invalid encryption payload");
+      }
+
+      /* 🔁 Auto redirect to CCAvenue */
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action =
+        "https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction";
+
+      const encInput = document.createElement("input");
+      encInput.type = "hidden";
+      encInput.name = "encRequest";
+      encInput.value = data.encRequest;
+
+      const accessInput = document.createElement("input");
+      accessInput.type = "hidden";
+      accessInput.name = "access_code";
+      accessInput.value = data.access_code;
+
+      form.appendChild(encInput);
+      form.appendChild(accessInput);
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
-      console.error("❌ Payment submission failed:", err);
+      console.error("Payment error:", err);
+      alert("Payment initiation failed");
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 p-6">
-      <h1 className="text-2xl font-bold mb-6">My Trainer Fees</h1>
-
-      {loading && <p>Loading fees...</p>}
-
-      {!loading && fees.length === 0 && (
-        <p className="text-gray-400">No fee records available</p>
-      )}
-
-      {/* ================= FEE LIST ================= */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {fees.map((fee) => (
-          <div
-            key={fee.id}
-            className="bg-gray-900 border border-gray-700 p-4 rounded"
-          >
-            <h3 className="text-lg font-semibold">
-              {fee.month}/{fee.year} — {fee.receiptNo}
-            </h3>
-
-            <p>Student: {fee.studentName}</p>
-            <p>Amount: ₹{fee.finalAmount}</p>
-
-            <p>
-              Status:{" "}
-              <span
-                className={
-                  fee.status === "paid"
-                    ? "text-green-400"
-                    : fee.status === "processing"
-                    ? "text-yellow-400"
-                    : "text-red-400"
-                }
-              >
-                {fee.status}
-              </span>
-            </p>
-
-            <p>Remarks: {fee.remarks || "—"}</p>
-            <p>Payment Mode: {fee.paymentMode || "Not selected"}</p>
-
-            {fee.status === "pending" && (
-              <button
-                onClick={() => setSelectedFee(fee)}
-                className="mt-3 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
-              >
-                Pay Now
-              </button>
-            )}
-
-            {fee.status === "processing" && (
-              <p className="text-yellow-400 mt-2">
-                ⏳ Payment under verification
-              </p>
-            )}
-
-            {fee.status === "paid" && (
-              <p className="text-green-400 mt-2">✅ Payment Successful</p>
-            )}
-          </div>
-        ))}
+  if (!student) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-xl font-semibold">
+        Loading student data...
       </div>
+    );
+  }
 
-      {/* ================= PAYMENT MODAL ================= */}
-      {selectedFee && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-gray-900 w-full max-w-md p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">
-              Pay ₹{selectedFee.finalAmount}
-            </h2>
+  return (
+    <div className="min-h-screen bg-[#f3f4f6] flex justify-center items-center p-4">
+      <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6 space-y-5">
+        <h2 className="text-2xl font-bold text-center">Fee Payment</h2>
 
-            <label className="block mb-2">Payment Mode</label>
-            <select
-              className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
-              value={paymentMode}
-              onChange={(e) => setPaymentMode(e.target.value)}
-            >
-              <option value="">Select</option>
-              <option>UPI</option>
-              <option>Card</option>
-              <option>Bank Transfer</option>
-              <option>Other</option>
-            </select>
-
-            {paymentMode === "UPI" && (
-              <p className="text-sm mt-2 text-gray-400">
-                Pay to UPI ID: <b>trainer@upi</b>
-              </p>
-            )}
-
-            <input
-              type="text"
-              placeholder="Transaction / Reference ID"
-              className="w-full mt-3 p-2 bg-gray-800 border border-gray-700 rounded"
-              value={transactionId}
-              onChange={(e) => setTransactionId(e.target.value)}
-            />
-
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={submitPayment}
-                className="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded"
-              >
-                Submit Payment
-              </button>
-
-              <button
-                onClick={() => setSelectedFee(null)}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 py-2 rounded"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-400 mt-3">
-              ⚠️ Payment will be verified by trainer.
-            </p>
-          </div>
+        <div className="border rounded-lg p-4 space-y-2">
+          <p>
+            <b>Name:</b> {student.firstName} {student.lastName}
+          </p>
+          <p>
+            <b>Session:</b> {student.sessions}
+          </p>
+          <p>
+            <b>Category:</b> {student.category}
+          </p>
         </div>
-      )}
+
+        <div>
+          <label className="block mb-1 font-medium">Select Month</label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="w-full border rounded-lg p-2"
+          >
+            <option value="">-- Select Month --</option>
+            {MONTHS.map((m) => (
+              <option
+                key={m.value}
+                value={m.value}
+                disabled={paidMonths.includes(m.value)}
+              >
+                {m.label} {paidMonths.includes(m.value) ? "✅ Paid" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="border rounded-lg p-4 bg-gray-50">
+          <p className="text-lg font-semibold">Payable Amount</p>
+          <p className="text-3xl font-bold text-orange-500">
+            ₹ {Number(student.fees)}
+          </p>
+        </div>
+
+        <button
+          onClick={handlePay}
+          disabled={loading}
+          className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold text-lg hover:bg-orange-600 transition disabled:opacity-50"
+        >
+          {loading ? "Redirecting to Payment Gateway..." : "Pay Now"}
+        </button>
+      </div>
     </div>
   );
 };
 
-export default StudentPayment;
+export default StudentFeePayment;

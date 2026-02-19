@@ -39,6 +39,13 @@ const ChatBox = () => {
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [renameValue, setRenameValue] = useState("");
+  const getValidImage = (url, name) => {
+    if (!url)
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
+    if (url.startsWith("blob:"))
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
+    return url;
+  };
 
   /* ================= AUTH + INSTITUTE ================= */
   useEffect(() => {
@@ -93,6 +100,7 @@ const ChatBox = () => {
             uid: data.customerUid,
             name: `${data.firstName || ""} ${data.lastName || ""}`.trim(),
             role: "student",
+            profileImageUrl: data.profileImageUrl || "", // ✅ FETCH CLOUDINARY URL
           };
         });
         setUsers((prev) => [...prev.filter((u) => u.role !== "student"), ...s]);
@@ -112,6 +120,7 @@ const ChatBox = () => {
             uid: data.trainerUid,
             name: `${data.firstName || ""} ${data.lastName || ""}`.trim(),
             role: "trainer",
+            profileImageUrl: data.profileImageUrl || "", // ✅ FETCH CLOUDINARY URL
           };
         });
         setUsers((prev) => [...prev.filter((u) => u.role !== "trainer"), ...t]);
@@ -629,7 +638,12 @@ const ChatBox = () => {
                   }}
                   className="px-4 py-3 border-b hover:bg-gray-100 cursor-pointer flex justify-between items-center"
                 >
-                  <span>{g.name}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-orange-200 flex items-center justify-center font-bold text-orange-700">
+                      {g.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <span>{g.name}</span>
+                  </div>
 
                   {unreadCounts[g.id] > 0 && (
                     <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
@@ -644,7 +658,13 @@ const ChatBox = () => {
                   onClick={() => startChat(u)}
                   className="px-4 py-3 border-b hover:bg-gray-100 cursor-pointer flex justify-between items-center"
                 >
-                  <span>{u.name}</span>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={getValidImage(u.profileImageUrl, u.name)}
+                      className="w-9 h-9 rounded-full object-cover"
+                    />
+                    <span>{u.name}</span>
+                  </div>
 
                   {unreadCounts[[user?.uid, u.uid].sort().join("_")] > 0 && (
                     <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">

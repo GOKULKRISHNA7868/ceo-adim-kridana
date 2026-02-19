@@ -28,7 +28,7 @@ const TrainersAttendancePage = () => {
 
     const q = query(
       collection(db, "InstituteTrainers"),
-      where("instituteId", "==", user.uid)
+      where("instituteId", "==", user.uid),
     );
 
     return onSnapshot(q, (snap) => {
@@ -43,7 +43,7 @@ const TrainersAttendancePage = () => {
     const q = query(
       collection(db, "trainerAttendance"),
       where("instituteId", "==", user.uid),
-      where("date", "==", selectedDate)
+      where("date", "==", selectedDate),
     );
 
     return onSnapshot(q, (snap) => {
@@ -60,7 +60,7 @@ const TrainersAttendancePage = () => {
     return trainers.filter((t) =>
       `${t.firstName} ${t.lastName}`
         .toLowerCase()
-        .includes(search.toLowerCase())
+        .includes(search.toLowerCase()),
     );
   }, [trainers, search]);
 
@@ -85,7 +85,7 @@ const TrainersAttendancePage = () => {
         status: value ? "present" : "absent",
         createdAt: serverTimestamp(),
       },
-      { merge: true }
+      { merge: true },
     );
   };
 
@@ -152,7 +152,7 @@ const TrainersAttendancePage = () => {
                           alert("Cannot mark attendance for future dates");
                         } else if (selectedDate < trainer.joinedDate) {
                           alert(
-                            `Cannot mark attendance before trainer's joining date (${trainer.joinedDate})`
+                            `Cannot mark attendance before trainer's joining date (${trainer.joinedDate})`,
                           );
                         }
                         return;
@@ -178,7 +178,7 @@ const TrainersAttendancePage = () => {
                           alert("Cannot mark attendance for future dates");
                         } else if (selectedDate < trainer.joinedDate) {
                           alert(
-                            `Cannot mark attendance before trainer's joining date (${trainer.joinedDate})`
+                            `Cannot mark attendance before trainer's joining date (${trainer.joinedDate})`,
                           );
                         }
                         return;

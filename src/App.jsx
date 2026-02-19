@@ -65,6 +65,7 @@ import "./index.css";
 import Plans from "./pages/Plans.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PaymentAndRefundPolicy from "./pages/PaymentAndRefundPolicy";
+
 function App() {
   const location = useLocation();
 
@@ -170,7 +171,7 @@ function App() {
               />
 
               {/* SERVICES */}
-               <Route path="/categories" element={<Categories />} />
+              <Route path="/categories" element={<Categories />} />
               <Route path="/services/martial-arts" element={<MartialArts />} />
               <Route path="/services/teamball" element={<TeamBallSports />} />
               <Route path="/services/racketsports" element={<RacketSports />} />

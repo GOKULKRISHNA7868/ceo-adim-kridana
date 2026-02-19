@@ -25,6 +25,7 @@ import DemoClasses from "./DemoClasses";
 import InstituteBookedDemos from "./InstituteBookedDemos";
 import Reelsdata from "./Reelsdata";
 import MyAccountPage from "./MyAccountPage";
+import ChatBox from "./ChatBox";
 const sidebarItems = [
   "Home",
   "Time Tables",
@@ -147,6 +148,8 @@ const InstituteDashboard = () => {
 
       case "Customers Attendance":
         return <StudentsAttendancePage />;
+      case "Chat Box":
+        return <ChatBox />;
       case "Management Attendance":
         return <TrainersAttendancePage />;
       case "Fees Details":

@@ -1,16 +1,10 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
 import { setDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 
 import { ChevronDown } from "lucide-react";
-
 
 const MONTHS = [
   { label: "January", value: "01" },
@@ -29,7 +23,6 @@ const MONTHS = [
 
 const SalaryDetailsPage = () => {
   const { user } = useAuth();
-
 
   const [trainers, setTrainers] = useState([]);
   const [payslips, setPayslips] = useState([]);
@@ -55,8 +48,6 @@ const SalaryDetailsPage = () => {
     monthlySalary: "",
   });
 
-
-
   /* ================= FETCH TRAINERS ================= */
   useEffect(() => {
     if (!user) return;
@@ -64,7 +55,7 @@ const SalaryDetailsPage = () => {
     const fetchTrainers = async () => {
       const q = query(
         collection(db, "InstituteTrainers"),
-        where("instituteId", "==", user.uid)
+        where("instituteId", "==", user.uid),
       );
 
       const snap = await getDocs(q);
@@ -81,8 +72,7 @@ const SalaryDetailsPage = () => {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   /* ================= FETCH PAYSLIPS ================= */
@@ -91,14 +81,13 @@ const SalaryDetailsPage = () => {
 
     const fetchPayslips = async () => {
       const snap = await getDocs(
-        collection(db, "institutes", user.uid, "payslips")
+        collection(db, "institutes", user.uid, "payslips"),
       );
       setPayslips(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
 
     fetchPayslips();
   }, [user]);
-
 
   const addTrainer = async () => {
     const newRef = doc(collection(db, "InstituteTrainers"));
@@ -127,37 +116,29 @@ const SalaryDetailsPage = () => {
     });
   };
 
-
-
   const updateTrainer = async () => {
-    await updateDoc(
-      doc(db, "InstituteTrainers", selectedTrainer.id),
-      editData
-    );
+    await updateDoc(doc(db, "InstituteTrainers", selectedTrainer.id), editData);
 
     // ✅ Update local state
     setTrainers((prev) =>
       prev.map((t) =>
-        t.id === selectedTrainer.id ? { ...t, ...editData } : t
-      )
+        t.id === selectedTrainer.id ? { ...t, ...editData } : t,
+      ),
     );
 
     setShowEditModal(false);
   };
 
-
-
   /* ================= FILTER ================= */
-const filteredTrainers = useMemo(() => {
-  return trainers.filter((t) => {
-    const nameMatch = `${t.firstName} ${t.lastName}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
+  const filteredTrainers = useMemo(() => {
+    return trainers.filter((t) => {
+      const nameMatch = `${t.firstName} ${t.lastName}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
 
-    return nameMatch;
-  });
-}, [trainers, search]);
-
+      return nameMatch;
+    });
+  }, [trainers, search]);
 
   const handleEdit = () => {
     if (!selectedTrainer) {
@@ -175,19 +156,17 @@ const filteredTrainers = useMemo(() => {
     setShowEditModal(true);
   };
 
-
-
   /* ================= CALCULATIONS ================= */
   const totalTrainers = trainers.length;
 
   const totalSalaryAmount = trainers.reduce(
     (sum, t) => sum + Number(t.monthlySalary || 0),
-    0
+    0,
   );
 
   const totalSalaryPaid = payslips.reduce(
     (sum, p) => sum + Number(p.salary?.net || 0),
-    0
+    0,
   );
 
   const totalSalaryPending = totalSalaryAmount - totalSalaryPaid;
@@ -199,45 +178,39 @@ const filteredTrainers = useMemo(() => {
     return {
       paid: payslip?.salary?.net || 0,
       date: payslip?.generatedAt
-        ? new Date(
-          payslip.generatedAt.seconds * 1000
-        ).toLocaleDateString()
+        ? new Date(payslip.generatedAt.seconds * 1000).toLocaleDateString()
         : "-",
     };
   };
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-
         <h1 className="text-3xl font-bold">Salary Details</h1>
 
         <div ref={monthRef} className="relative w-full sm:w-48">
           <button
             onClick={() => setShowMonthDropdown(!showMonthDropdown)}
             className="bg-orange-500 text-white rounded-lg px-4 py-3 font-semibold w-full flex items-center justify-between"
-
           >
             <span>
               {selectedMonth
-                ? MONTHS.find(m => m.value === selectedMonth)?.label
+                ? MONTHS.find((m) => m.value === selectedMonth)?.label
                 : "Select Month"}
             </span>
 
             <ChevronDown
               size={18}
-              className={`ml-2 transition-transform ${showMonthDropdown ? "rotate-180" : ""
-                }`}
+              className={`ml-2 transition-transform ${
+                showMonthDropdown ? "rotate-180" : ""
+              }`}
             />
-
           </button>
 
           {showMonthDropdown && (
             <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md max-h-48 overflow-y-auto">
-
-              {MONTHS.map(m => (
+              {MONTHS.map((m) => (
                 <div
                   key={m.value}
                   onClick={() => {
@@ -252,15 +225,19 @@ const filteredTrainers = useMemo(() => {
             </div>
           )}
         </div>
-
       </div>
 
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-
         <StatCard title="Total Employees" value={totalTrainers} />
-        <StatCard title="Total Salary Amount" value={`₹ ${totalSalaryAmount}`} />
-        <StatCard title="Total Salary Pending" value={`₹ ${totalSalaryPending}`} />
+        <StatCard
+          title="Total Salary Amount"
+          value={`₹ ${totalSalaryAmount}`}
+        />
+        <StatCard
+          title="Total Salary Pending"
+          value={`₹ ${totalSalaryPending}`}
+        />
         <StatCard title="Total Salary Paid" value={`₹ ${totalSalaryPaid}`} />
       </div>
 
@@ -275,29 +252,22 @@ const filteredTrainers = useMemo(() => {
         />
 
         <div className="flex flex-wrap gap-4 items-center">
-
-         <div className="flex flex-col sm:flex-row gap-4">
-
-<button
-  type="button"
-  onClick={() => setShowAddModal(true)}
-  className="bg-orange-500 text-white px-4 py-2 rounded"
->
-  + Add
-</button>
-<button
-  type="button"
-  onClick={handleEdit}
-  className="border border-orange-500 text-orange-500 px-4 py-2 rounded"
->
-  Edit
-</button>
-
-
-</div>
-
-
-
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="bg-orange-500 text-white px-4 py-2 rounded"
+            >
+              + Add
+            </button>
+            <button
+              type="button"
+              onClick={handleEdit}
+              className="border border-orange-500 text-orange-500 px-4 py-2 rounded"
+            >
+              Edit
+            </button>
+          </div>
         </div>
       </div>
 
@@ -321,8 +291,9 @@ const filteredTrainers = useMemo(() => {
               className={`grid grid-cols-5 min-w-[700px] px-6 py-4 border-t items-center cursor-pointer
   ${selectedTrainer?.id === trainer.id ? "bg-orange-50" : ""}`}
             >
-
-              <div>{trainer.firstName} {trainer.lastName}</div>
+              <div>
+                {trainer.firstName} {trainer.lastName}
+              </div>
               <div>{trainer.designation}</div>
               <div>₹ {trainer.monthlySalary || 0}</div>
               <div className="text-green-600 font-semibold">
@@ -335,8 +306,7 @@ const filteredTrainers = useMemo(() => {
       </div>
 
       {/* SAVE & CANCEL */}
-     <div className="flex flex-col sm:flex-row justify-end gap-6 mt-8">
-
+      <div className="flex flex-col sm:flex-row justify-end gap-6 mt-8">
         <button
           onClick={() => {
             setSearch("");
@@ -373,7 +343,6 @@ const filteredTrainers = useMemo(() => {
           onClose={() => setShowEditModal(false)}
         />
       )}
-
     </div>
   );
 };
@@ -387,7 +356,6 @@ const StatCard = ({ title, value }) => (
 const ModalForm = ({ title, data, setData, onSave, onClose }) => (
   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div className="bg-white p-6 rounded-xl w-[90%] sm:w-96 space-y-4">
-
       <h2 className="font-semibold">{title}</h2>
 
       {Object.keys(data).map((k) => (
@@ -413,7 +381,6 @@ const ModalForm = ({ title, data, setData, onSave, onClose }) => (
           Save
         </button>
       </div>
-
     </div>
   </div>
 );
