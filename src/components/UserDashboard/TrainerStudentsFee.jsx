@@ -9,6 +9,7 @@ import {
   setDoc,
   serverTimestamp,
   getDocs,
+  updateDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -32,6 +33,7 @@ const StudentFeePayment = ({ studentUid }) => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [loading, setLoading] = useState(false);
   const [paidMonths, setPaidMonths] = useState([]);
+  const [user, setUser] = useState(null);
 
   console.log("💡 Selected student UID:", studentUid);
 
@@ -45,7 +47,7 @@ const StudentFeePayment = ({ studentUid }) => {
 
   /* ================= FETCH STUDENT ================= */
   useEffect(() => {
-    if (!studentUid) return; // use selected student UID
+    if (!studentUid) return;
 
     const q = query(
       collection(db, "trainerstudents"),
@@ -61,7 +63,7 @@ const StudentFeePayment = ({ studentUid }) => {
 
   /* ================= FETCH PAID MONTHS ================= */
   useEffect(() => {
-    if (!studentUid) return; // use selected student UID
+    if (!studentUid) return;
 
     const fetchPayments = async () => {
       const q = query(
@@ -77,10 +79,12 @@ const StudentFeePayment = ({ studentUid }) => {
 
     fetchPayments();
   }, [studentUid]);
+
   /* ================= PAY ================= */
   const handlePay = async () => {
     if (!selectedMonth) return alert("Select month");
     if (!student) return;
+    if (!user) return alert("User not authenticated");
 
     if (paidMonths.includes(selectedMonth)) {
       return alert("Fees already paid for this month ✅");
@@ -89,9 +93,9 @@ const StudentFeePayment = ({ studentUid }) => {
     setLoading(true);
 
     try {
-      const orderId = "ORD_" + Date.now(); // unique secure order id
+      const orderId = "ORD_" + Date.now();
 
-      /* 🔐 Store pending payment (server verified later) */
+      /* 🔐 Store pending */
       await setDoc(doc(db, "pendingPayments", orderId), {
         orderId,
         studentUid: user.uid,
@@ -103,33 +107,36 @@ const StudentFeePayment = ({ studentUid }) => {
         createdAt: serverTimestamp(),
       });
 
-      const res = await fetch("http://localhost:5000/api/pay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: Number(student.fees),
-          userId: user.uid,
-          month: selectedMonth,
-          studentId: student.id,
-          orderId,
-        }),
-      });
+      /* 🔁 CALL BACKEND (RENDER SERVER) */
+      const res = await fetch(
+        "https://backendpayments.onrender.com/api/ccav/initiate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: Number(student.fees),
+            order_id: orderId,
+            customer: {
+              name: student.firstName + " " + student.lastName,
+              email: student.email,
+              phone: student.phone,
+            },
+          }),
+        },
+      );
 
-      if (!res.ok) {
-        throw new Error("Backend error");
-      }
+      if (!res.ok) throw new Error("Backend error");
 
       const data = await res.json();
 
-      if (!data?.encRequest || !data?.access_code) {
+      if (!data?.encRequest || !data?.access_code || !data?.url) {
         throw new Error("Invalid encryption payload");
       }
 
-      /* 🔁 Auto redirect to CCAvenue */
+      /* 🔁 Redirect to CCAvenue */
       const form = document.createElement("form");
       form.method = "POST";
-      form.action =
-        "https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction";
+      form.action = data.url;
 
       const encInput = document.createElement("input");
       encInput.type = "hidden";
@@ -151,6 +158,55 @@ const StudentFeePayment = ({ studentUid }) => {
       setLoading(false);
     }
   };
+
+  /* ================= PAYMENT SUCCESS HANDLER ================= */
+  const paymentSuccess = async (orderId, amount, month) => {
+    try {
+      /* ✅ payments collection */
+      await setDoc(doc(db, "payments", orderId), {
+        orderId,
+        studentUid: student.studentUid,
+        studentId: student.id,
+        trainerId: student.trainerId,
+        month,
+        amount,
+        status: "Success",
+        createdAt: serverTimestamp(),
+      });
+
+      /* ✅ update trainerstudents */
+      const studentRef = doc(db, "trainerstudents", student.id);
+      await updateDoc(studentRef, {
+        paid: amount,
+        status: "Payment Completed",
+      });
+
+      /* ✅ update pendingPayments */
+      await updateDoc(doc(db, "pendingPayments", orderId), {
+        status: "Success",
+      });
+
+      console.log("✅ Payment completed & Firestore updated");
+    } catch (e) {
+      console.error("❌ Firestore update error:", e);
+    }
+  };
+
+  /* ================= AUTO SUCCESS LISTENER ================= */
+  useEffect(() => {
+    if (!student) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    const orderId = params.get("order_id");
+    const amount = params.get("amount");
+
+    if (status === "success" && orderId && amount) {
+      paymentSuccess(orderId, Number(amount), selectedMonth);
+    }
+  }, [student]);
+
+  /* ================= UI (UNCHANGED) ================= */
 
   if (!student) {
     return (

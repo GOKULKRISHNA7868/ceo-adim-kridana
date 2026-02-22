@@ -26,6 +26,8 @@ import InstituteBookedDemos from "./InstituteBookedDemos";
 import Reelsdata from "./Reelsdata";
 import MyAccountPage from "./MyAccountPage";
 import ChatBox from "./ChatBox";
+import EventsPage from "./Events/EventsPage";
+import EventsSidebar from "./Events/EventsSidebar";
 const sidebarItems = [
   "Home",
   "Time Tables",
@@ -176,6 +178,8 @@ const InstituteDashboard = () => {
         return <Reelsdata />;
       case "Time Tables":
         return <Timetable />;
+      case "Add Events":
+        return <EventsPage />;
       case "My Account":
         return <MyAccountPage setActiveMenu={setActiveMenu} />;
 

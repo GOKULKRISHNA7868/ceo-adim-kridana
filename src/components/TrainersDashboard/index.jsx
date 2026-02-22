@@ -22,6 +22,7 @@ import { db } from "../../firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth } from "../../context/AuthContext";
 import Reelsdata from "./Reelsdata";
+import ChatBox from "./ChatBox";
 /* =============================
    🔥 NEW ROLE STATE
 ============================= */
@@ -45,6 +46,7 @@ const TrainersDashboard = () => {
     "Booked Demos",
     "Fees Details",
     `Add ${studentLabel} Details`,
+    "Chat Box",
     "Inbox",
     "Shop",
     "My Account",
@@ -183,6 +185,7 @@ const TrainersDashboard = () => {
     if (item === "Terms & Conditions") return setView("terms");
     if (item === "Privacy Policy") return setView("privacy");
     if (item === "Shop") return navigate("/shop");
+    if (item === "Chat Box") return setView("chatBox");
 
     setView("notConnected");
   };
@@ -210,6 +213,7 @@ const TrainersDashboard = () => {
     if (view === "performance") return <PerformanceReports />;
     if (view === "analytics") return <Reelsdata />;
     if (view === "myAccount") return <MyAccountPage />;
+    if (view === "chatBox") return <ChatBox />;
 
     if (view === "notConnected") {
       return (

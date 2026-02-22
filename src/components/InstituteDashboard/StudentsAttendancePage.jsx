@@ -116,26 +116,21 @@ const StudentsAttendancePage = () => {
       const name = `${s.firstName} ${s.lastName}`.toLowerCase();
       const matchSearch = name.includes(search.toLowerCase());
 
-      // Joining rule
-      const joinedOk = !s.joiningDate || s.joiningDate <= selectedDate;
+      // ✅ Status rule
+      // show if:
+      // - status field not present
+      // - status === "Active"
+      // hide if:
+      // - status === "Left"
+      const statusOk = !s.status || s.status === "Active";
 
-      // Left rule
-      let leftOk = true;
-      if (s.status === "Left") {
-        if (s.leftDate?.seconds) {
-          const leftDateStr = new Date(s.leftDate.seconds * 1000)
-            .toISOString()
-            .split("T")[0];
-          leftOk = leftDateStr >= selectedDate;
-        } else {
-          leftOk = false;
-        }
-      }
+      // ✅ Joining rule
+      const joinedOk = !s.joiningDate || s.joiningDate <= selectedDate;
 
       const matchSession = !selectedSession || s.sessions === selectedSession;
       const matchTime = !selectedTime || s.timings === selectedTime;
 
-      return matchSearch && joinedOk && leftOk && matchSession && matchTime;
+      return matchSearch && statusOk && joinedOk && matchSession && matchTime;
     });
   }, [students, search, selectedDate, selectedSession, selectedTime]);
 
