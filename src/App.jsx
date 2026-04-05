@@ -6,66 +6,16 @@ import { AuthProvider } from "./context/AuthContext";
 import ScrollToTop from "./components/ScrollToTop";
 
 /* ================= CORE PAGES ================= */
-import RoleSelection from "./pages/RoleSelection.jsx";
-import Signup from "./pages/Signup.jsx";
-import TrainerSignup from "./pages/TrainerSignup.jsx";
-import InstituteSignup from "./pages/InstituteSignup.jsx";
+
 import Login from "./pages/Login.jsx";
 import Landing from "./pages/Landing.jsx";
 
 /* ================= NAVBAR ================= */
 import Navbar from "./components/Navbar.jsx";
 import Footer from "./components/Footer";
-import About from "./pages/About.jsx";
-import Career from "./pages/Career.jsx";
-import Contact from "./pages/Contact.jsx";
-/* ================= SHOP ================= */
-import ShopPage from "./components/ShopPage.jsx";
-import ProductsGridPage from "./components/ProductsGridPage.jsx";
-import AddAddressPage from "./components/AddAddressPage.jsx";
-import PaymentPage from "./components/PaymentPage.jsx";
-import CartPage from "./components/CartPage.jsx";
-import WishlistPage from "./components/WishlistPage.jsx";
-import ReelViewer from "./pages/ReelViewer";
-
-/* ================= DASHBOARDS (index.jsx based) ================= */
-import InstituteDashboard from "./components/InstituteDashboard";
-import TrainersDashboard from "./components/TrainersDashboard";
-import UserDashboard from "./components/UserDashboard";
-
-/* ================= LIST & DETAILS ================= */
-import ViewInstitutes from "./pages/ViewInstitutes.jsx";
-import ViewTrainers from "./pages/ViewTrainers.jsx";
-import InstituteDetailsPage from "./pages/InstituteDetailsPage.jsx";
-import TrainerDetailsPage from "./pages/TrainerDetailsPage.jsx";
-import Terms from "./pages/Terms.jsx";
-import Privacy from "./pages/Privacy.jsx";
-import PaymentPolicy from "./pages/PaymentPolicy.jsx";
-import CustomerCentricPolicies from "./pages/CustomerCentricPolicies.jsx";
-import DeliveryAndShippingPolicy from "./pages/DeliveryAndShippingPolicy.jsx";
-
-/* ================= SELL FLOW ================= */
-import SellSportsMaterial from "./components/InstituteDashboard/SellSportsMaterial.jsx";
-import UploadProductDetails from "./components/InstituteDashboard/UploadProductDetails.jsx";
-
-/* ================= SERVICES ================= */
-import MartialArts from "./pages/Services/MartialArts.jsx";
-import TeamBallSports from "./pages/Services/TeamBallSports.jsx";
-import RacketSports from "./pages/Services/RacketSports.jsx";
-import Fitness from "./pages/Services/Fitness.jsx";
-import TargetPrecisionSports from "./pages/Services/TargetPrecisionSports.jsx";
-import EquestrianSports from "./pages/Services/EquestrianSports.jsx";
-import AdventureOutdoorSports from "./pages/Services/AdventureOutdoorSports.jsx";
-import IceSports from "./pages/Services/IceSports.jsx";
-import Wellness from "./pages/Services/Wellness.jsx";
-import Dance from "./pages/Services/Dance.jsx";
-import Categories from "./pages/Categories";
-import AvailableDemoClasses from "./pages/AvailableDemoClasses.jsx";
+import Adminkyc from "./pages/Adminkyc.jsx";
 import "./index.css";
-import Plans from "./pages/Plans.jsx";
-import ProtectedRoute from "./routes/ProtectedRoute";
-import PaymentAndRefundPolicy from "./pages/PaymentAndRefundPolicy";
-
+import Transications from "./pages/Transications.jsx";
 function App() {
   const location = useLocation();
 
@@ -92,20 +42,23 @@ function App() {
             <ScrollToTop />
 
             <Routes>
-              {/* AUTH */}
+              <Route path="/" element={<Login />} />
+              <Route path="/Landing" element={<Landing />} />
+              <Route path="/adminkyc" element={<Adminkyc />} />
+              <Route path="/Transications" element={<Transications />} />
+              {/* AUTH 
               <Route path="/about" element={<About />} />
               <Route path="/career" element={<Career />} />
               <Route path="/contact" element={<Contact />} />
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
+
               <Route path="/signup" element={<Signup />} />
               <Route path="/trainer-signup" element={<TrainerSignup />} />
-              <Route path="/institute-signup" element={<InstituteSignup />} />
+              <Route path="/institute-signup" element={<InstituteSignup />} />*/}
 
-              {/* LANDING */}
+              {/* LANDING
               <Route path="/RoleSelection" element={<RoleSelection />} />
-              <Route path="/reels" element={<ReelViewer />} />
-              {/* DASHBOARDS */}
+              <Route path="/reels" element={<ReelViewer />} /> */}
+              {/* DASHBOARDS 
               <Route
                 path="/trainers/dashboard"
                 element={
@@ -124,9 +77,9 @@ function App() {
                 }
               />
 
-              <Route path="/user/dashboard" element={<UserDashboard />} />
+              <Route path="/user/dashboard" element={<UserDashboard />} />*/}
 
-              {/* SELL */}
+              {/* SELL
               <Route
                 path="/sell-sports-material"
                 element={<SellSportsMaterial />}
@@ -134,17 +87,17 @@ function App() {
               <Route
                 path="/upload-product-details"
                 element={<UploadProductDetails />}
-              />
+              /> */}
 
-              {/* SHOP */}
+              {/* SHOP 
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/shop/:category" element={<ProductsGridPage />} />
               <Route path="/addresspage" element={<AddAddressPage />} />
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/cart" element={<CartPage />} />
-              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />*/}
 
-              {/* LIST & DETAILS */}
+              {/* LIST & DETAILS 
               <Route path="/trainers" element={<ViewTrainers />} />
               <Route path="/institutes" element={<ViewInstitutes />} />
               <Route path="/trainers/:id" element={<TrainerDetailsPage />} />
@@ -168,9 +121,9 @@ function App() {
               <Route
                 path="/payment-refund-policy"
                 element={<PaymentAndRefundPolicy />}
-              />
+              />*/}
 
-              {/* SERVICES */}
+              {/* SERVICES 
               <Route path="/categories" element={<Categories />} />
               <Route path="/services/martial-arts" element={<MartialArts />} />
               <Route path="/services/teamball" element={<TeamBallSports />} />
@@ -196,7 +149,7 @@ function App() {
               <Route
                 path="/book-demo/:instituteId"
                 element={<AvailableDemoClasses />}
-              />
+              />*/}
             </Routes>
             {showFooter && <Footer />}
           </div>

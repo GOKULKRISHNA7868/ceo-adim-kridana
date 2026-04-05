@@ -4,25 +4,6 @@ import { auth, db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { User } from "lucide-react";
 
-const serviceTypes = [
-  { name: "Martial Arts", path: "/services/martial-arts" },
-  { name: "Team Ball Sports", path: "/services/teamball" },
-  { name: "Racket Sports", path: "/services/racketsports" },
-  { name: "Fitness", path: "/services/fitness" },
-  {
-    name: "Target & Precision Sports",
-    path: "/services/target-precision-sports",
-  },
-  { name: "Equestrian Sports", path: "/services/equestrian-sports" },
-  {
-    name: "Adventure & Outdoor Sports",
-    path: "/services/adventure-outdoor-sports",
-  },
-  { name: "Ice Sports", path: "/services/ice-sports" },
-  { name: "Wellness", path: "/services/wellness" },
-  { name: "Dance", path: "/services/dance" },
-];
-
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [serviceOpen, setServiceOpen] = useState(false);
@@ -141,35 +122,6 @@ const Navbar = () => {
   }, []);
 
   /* ================= DASHBOARD NAVIGATION ================= */
-  const handleDashboardNavigation = () => {
-    setDropdownOpen(false);
-
-    // ✅ Always open dashboard from top
-    window.scrollTo(0, 0);
-
-    if (userRole === "user") {
-      navigate("/user/dashboard");
-      return;
-    }
-
-    if (
-      (userRole === "trainer" || userRole === "institute") &&
-      !hasActivePlan
-    ) {
-      navigate("/plans");
-      return;
-    }
-
-    if (userRole === "institute") {
-      navigate("/institutes/dashboard");
-      return;
-    }
-
-    if (userRole === "trainer") {
-      navigate("/trainers/dashboard");
-      return;
-    }
-  };
 
   /* ================= LOGOUT ================= */
   const handleLogout = async () => {
@@ -193,7 +145,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           {/* LOGO */}
           <div
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/landing")}
             className="flex items-center gap-2 cursor-pointer"
           >
             <img
@@ -209,53 +161,23 @@ const Navbar = () => {
 
           {/* DESKTOP MENU */}
           <div className="hidden md:flex items-center space-x-8 text-gray-700">
-            <NavLink to="/" className="hover:text-orange-600 transition">
+            <NavLink to="/Landing" className="hover:text-orange-600 transition">
               Home
+            </NavLink>
+            <NavLink
+              to="/AdminKYC"
+              className="hover:text-orange-600 transition"
+            >
+              KYC
+            </NavLink>
+            <NavLink
+              to="/Transications"
+              className="hover:text-orange-600 transition"
+            >
+              Transactions
             </NavLink>
 
             {/* SERVICES */}
-            <div className="relative" ref={servicesRef}>
-              <button
-                onClick={() => setServiceOpen((prev) => !prev)}
-                className="hover:text-orange-600 flex items-center gap-1 transition"
-              >
-                Categories
-                <svg
-                  className={`w-4 h-4 transition-transform ${
-                    serviceOpen ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-
-              {serviceOpen && (
-                <div className="absolute top-12 left-0 w-72 bg-white shadow-lg rounded-2xl border border-gray-200 py-2 z-50">
-                  {serviceTypes.map((service) => (
-                    <NavLink
-                      key={service.path}
-                      to={service.path}
-                      onClick={() => setServiceOpen(false)}
-                      className="block px-6 py-3 text-[15px] text-gray-600 font-normal hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-all duration-150"
-                    >
-                      {service.name}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <NavLink to="/shop" className="hover:text-orange-600 transition">
-              Shop
-            </NavLink>
 
             {/* USER ACTIONS (profile + new dropdown side by side) */}
             {/* PROFILE + ARROW DROPDOWN */}
@@ -300,13 +222,6 @@ const Navbar = () => {
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-44 bg-white shadow-lg rounded-lg border z-50">
                     <button
-                      onClick={handleDashboardNavigation}
-                      className="block w-full text-left px-4 py-2 hover:bg-orange-50"
-                    >
-                      Dashboard
-                    </button>
-
-                    <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
                     >
@@ -320,7 +235,7 @@ const Navbar = () => {
             {/* SIGN UP BUTTON */}
             {!authLoading && !auth.currentUser && (
               <button
-                onClick={() => navigate("/RoleSelection")}
+                onClick={() => navigate("/")}
                 className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-full shadow-md transition"
               >
                 Sign Up
@@ -348,21 +263,19 @@ const Navbar = () => {
           >
             Home
           </NavLink>
-
           <NavLink
-            to="/viewTrainers"
+            to="/AdminKYC"
             onClick={() => setIsOpen(false)}
             className="block font-medium hover:text-orange-600"
           >
-            Trainers
+            KYC
           </NavLink>
-
           <NavLink
-            to="/shop"
+            to="/Transactions"
             onClick={() => setIsOpen(false)}
             className="block font-medium hover:text-orange-600"
           >
-            Shop
+            Transactions
           </NavLink>
 
           {auth.currentUser && (

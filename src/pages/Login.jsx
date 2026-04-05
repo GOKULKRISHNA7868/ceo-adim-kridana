@@ -1,197 +1,117 @@
 import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
+import { useNavigate } from "react-router-dom";
 import { sendPasswordResetEmail } from "firebase/auth";
+const ADMIN_EMAIL = "ceo@kdastshofintechsolutions.com";
 
-export default function Login() {
+const AdminLogin = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const role = new URLSearchParams(location.search).get("role") || "user";
 
-  const [darkMode, setDarkMode] = useState(false);
-  const [formData, setFormData] = useState({ emailPhone: "", password: "" });
-  const [familyStudents, setFamilyStudents] = useState([]);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleChange = (e) =>
-    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
-
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    try {
-      const cred = await signInWithEmailAndPassword(
-        auth,
-        formData.emailPhone,
-        formData.password,
-      );
+    setError("");
 
-      const user = cred.user;
-
-      const trainerSnap = await getDoc(doc(db, "trainers", user.uid));
-      const instituteSnap = await getDoc(doc(db, "institutes", user.uid));
-      const familySnap = await getDoc(doc(db, "families", user.uid));
-
-      let actualRole = null;
-      if (trainerSnap.exists()) actualRole = "trainer";
-      if (instituteSnap.exists()) actualRole = "institute";
-      if (familySnap.exists()) actualRole = "family";
-      if (!actualRole && role === "user") actualRole = "user";
-
-      if (role !== "user" && actualRole !== role && actualRole !== "family") {
-        alert(`Role mismatch. Registered as ${actualRole}`);
-        return;
-      }
-
-      // 🔐 PLAN CHECK (trainer / institute only)
-      if (actualRole !== "user" && actualRole !== "family") {
-        const planRef = doc(db, "plans", user.uid);
-        const planSnap = await getDoc(planRef);
-
-        if (!planSnap.exists()) {
-          navigate("/plans");
-          return;
-        }
-
-        const plan = planSnap.data();
-        const now = Date.now();
-
-        if (
-          plan.currentPlan?.endDate?.toMillis() < now ||
-          plan.currentPlan?.status === "expired"
-        ) {
-          navigate("/plans?expired=true");
-          return;
-        }
-      }
-
-      // ✅ FAMILY LOGIN REDIRECT
-      if (actualRole === "family") {
-        navigate("/"); // landing page or main index
-        return;
-      }
-
-      // ✅ FINAL REDIRECT FOR OTHERS
-      if (actualRole === "trainer") navigate("/trainers/dashboard");
-      else if (actualRole === "institute") navigate("/institutes/dashboard");
-      else navigate("/landing");
-    } catch (err) {
-      console.error(err);
-
-      if (
-        err.code === "auth/wrong-password" ||
-        err.code === "auth/invalid-credential"
-      ) {
-        alert("Wrong password. Please try again.");
-      } else if (err.code === "auth/user-not-found") {
-        alert("No account found with this email.");
-      } else {
-        alert("Login failed: " + err.message);
-      }
-    }
-  };
-
-  // ✅ Forgot Password Handler
-  const handleForgotPassword = async () => {
-    const email = prompt("Enter your registered email to reset password:");
-
-    if (!email) {
-      alert("Email is required!");
+    if (email !== ADMIN_EMAIL) {
+      setError("Only CEO admin login allowed.");
       return;
     }
 
     try {
-      await sendPasswordResetEmail(auth, email);
-      alert("Password reset link sent successfully to your email!");
-    } catch (error) {
-      console.error(error);
+      setLoading(true);
 
-      if (error.code === "auth/user-not-found") {
-        alert("No account found with this email.");
-      } else if (error.code === "auth/invalid-email") {
-        alert("Please enter a valid email address.");
-      } else {
-        alert("Error: " + error.message);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+
+      navigate("/landing");
+    } catch (err) {
+      setError("Invalid login credentials");
     }
+
+    setLoading(false);
   };
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError("Please enter your email to reset password.");
+      return;
+    }
 
+    if (email !== ADMIN_EMAIL) {
+      setError("Only CEO admin email allowed.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await sendPasswordResetEmail(auth, email);
+      setError("Password reset email sent. Check your inbox.");
+    } catch (err) {
+      setError("Failed to send reset email.");
+    }
+    setLoading(false);
+  };
   return (
-    <div
-      className={`min-h-screen flex items-center justify-center p-6 ${darkMode ? "bg-gray-900" : "bg-white"}`}
-    >
-      <div className="absolute top-6 right-6">
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="px-4 py-2 border border-orange-400 text-orange-500 rounded"
-        >
-          {darkMode ? "Light Mode" : "Dark Mode"}
-        </button>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-md">
+        <h2 className="text-2xl font-bold text-center mb-6">CEO Admin Login</h2>
 
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`w-full max-w-md p-8 rounded-xl shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}
-      >
-        <h2 className="text-3xl font-bold mb-6 text-orange-500">
-          {role === "trainer"
-            ? "Trainer Sign In"
-            : role === "institute"
-              ? "Institute Sign In"
-              : "Welcome Back"}
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email / Phone */}
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block mb-2 text-orange-500 font-medium">
-              E-mail / Phone Number*
-            </label>
+            <label className="text-sm text-gray-600">Email</label>
+
             <input
-              type="text"
-              name="emailPhone"
-              placeholder="Enter your email or phone number"
+              type="email"
+              placeholder="Enter admin email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border rounded-lg p-3 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-orange-300
-      focus:outline-none focus:border-orange-500"
             />
           </div>
 
-          {/* Password */}
           <div>
-            <label className="block mb-2 text-orange-500 font-medium">
-              Password*
-            </label>
+            <label className="text-sm text-gray-600">Password</label>
+
             <input
               type="password"
-              name="password"
-              placeholder="Enter your password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border rounded-lg p-3 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-              onChange={handleChange}
-              className="w-full p-3 rounded-lg border border-orange-300
-      focus:outline-none focus:border-orange-500"
             />
           </div>
-          {/* Forgot Password */}
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="text-right">
             <button
               type="button"
               onClick={handleForgotPassword}
-              className="text-sm text-orange-500 hover:underline font-medium"
+              className="text-sm text-blue-500 hover:underline"
             >
               Forgot Password?
             </button>
           </div>
-
-          <button className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition">
-            Sign In
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition"
+          >
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-      </motion.div>
+
+        <p className="text-center text-xs text-gray-500 mt-6">
+          Secure CEO Access Only
+        </p>
+      </div>
     </div>
   );
-}
+};
+
+export default AdminLogin;
