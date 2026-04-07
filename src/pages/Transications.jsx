@@ -94,8 +94,17 @@ const AdminPaymentsPage = () => {
     });
   };
 
-  const filteredTrainer = filterData(trainerPayments);
-  const filteredInstitute = filterData(institutePayments, true);
+  const filteredTrainer = filterData(trainerPayments).sort((a, b) => {
+    const dateA = new Date(a.paidDate || a.createdAt?.seconds * 1000 || 0);
+    const dateB = new Date(b.paidDate || b.createdAt?.seconds * 1000 || 0);
+    return dateB - dateA; // latest first
+  });
+
+  const filteredInstitute = filterData(institutePayments, true).sort((a, b) => {
+    const dateA = new Date(a.date || a.createdAt?.seconds * 1000 || 0);
+    const dateB = new Date(b.date || b.createdAt?.seconds * 1000 || 0);
+    return dateB - dateA; // latest first
+  });
 
   const calculate = (p, isInstitute = false) => {
     const r = findRazor(p);
